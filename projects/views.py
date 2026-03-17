@@ -467,6 +467,22 @@ def _export_xlsx(tasks_list, date_from, date_to):
     return response
 
 
+
+@login_required
+@require_POST
+def project_edit(request, pk):
+    project = get_object_or_404(Project, pk=pk, user=request.user)
+    name = request.POST.get('name', '').strip()
+    if not name:
+        messages.error(request, 'Название проекта не может быть пустым')
+        return redirect('project_detail', pk=pk)
+    project.name = name
+    project.initiator = request.POST.get('initiator', '').strip()
+    project.description = request.POST.get('description', '').strip()
+    project.save()
+    messages.success(request, f'Проект «{project.name}» обновлён')
+    return redirect('project_detail', pk=pk)
+
 # ── Admin Panel ───────────────────────────────────────────
 
 

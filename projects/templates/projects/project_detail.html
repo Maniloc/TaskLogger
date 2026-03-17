@@ -8,13 +8,15 @@
   {{ project.name }}
 </div>
 
+<!-- Project header -->
 <div class="page-header">
   <div>
     <div class="page-title">{{ project.name }}</div>
     {% if project.initiator %}<div class="page-sub">инициатор: {{ project.initiator }}</div>{% endif %}
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <a href="{% url 'report' %}?project={{ project.pk }}" class="btn btn-ghost btn-sm">отчёт по проекту</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <a href="{% url 'report' %}?project={{ project.pk }}" class="btn btn-ghost btn-sm">отчёт</a>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-proj').style.display=document.getElementById('edit-proj').style.display==='none'?'block':'none'">редактировать проект</button>
     <form method="post" action="{% url 'project_delete' project.pk %}" style="display:inline"
           onsubmit="return confirm('Удалить проект «{{ project.name }}» и {{ page_obj.paginator.count }} задач?')">
       {% csrf_token %}
@@ -23,8 +25,27 @@
   </div>
 </div>
 
+<!-- Edit project form (hidden by default) -->
+<div id="edit-proj" style="display:none;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="card-title">редактировать проект</div>
+    <form method="post" action="{% url 'project_edit' project.pk %}">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="fg"><label>название *</label><input type="text" name="name" value="{{ project.name }}" required></div>
+        <div class="fg"><label>инициатор</label><input type="text" name="initiator" value="{{ project.initiator }}"></div>
+        <div class="fg full"><label>описание / обоснование</label><textarea name="description" style="min-height:60px">{{ project.description }}</textarea></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="submit" class="btn btn-primary">сохранить</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-proj').style.display='none'">отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% if project.description %}
-<div style="font-size:14px;color:var(--text2);margin-bottom:1.125rem;padding:11px 15px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);line-height:1.65">
+<div style="font-size:14px;color:var(--text2);margin-bottom:1.25rem;padding:12px 16px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);line-height:1.65">
   {{ project.description }}
 </div>
 {% endif %}
@@ -35,39 +56,67 @@
   <div class="stat-card"><div class="stat-val">{{ total_hours|floatformat:1 }}ч</div><div class="stat-lbl">часов (фильтр)</div></div>
 </div>
 
-<div class="card" style="margin-bottom:1.25rem">
+<!-- Add task form -->
+<div class="card" style="margin-bottom:1.5rem">
   <div class="card-title">добавить задачу</div>
   <form method="post" action="{% url 'task_create' project.pk %}">
     {% csrf_token %}
     <div class="form-grid">
-      <div class="fg"><label>дата *</label><input type="date" name="date" value="{% now 'Y-m-d' %}" required></div>
+      <div class="fg">
+        <label>дата *</label>
+        <input type="date" name="date" value="{% now 'Y-m-d' %}" required>
+      </div>
       <div class="fg">
         <label>статус</label>
-        <select name="status">{% for val,label in status_choices %}<option value="{{ val }}"{% if val == 'done' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <select name="status">
+          {% for val,label in status_choices %}
+          <option value="{{ val }}"{% if val == 'done' %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div class="fg"><label>инициатор задачи</label><input type="text" name="initiator" placeholder="Если отличается от проекта"></div>
+      <div class="fg">
+        <label>инициатор задачи</label>
+        <input type="text" name="initiator" placeholder="Если отличается от проекта">
+      </div>
       <div class="fg">
         <label>часы</label>
         <input type="text" name="hours" placeholder="2.5 или 2ч30м или 2:30">
         <span class="field-hint">Форматы: 2.5 · 2,5 · 2ч30м · 2:30</span>
       </div>
-      <div class="fg full"><label>задача / описание *</label><textarea name="task" placeholder="Опишите выполненную работу..." required></textarea></div>
+      <div class="fg full">
+        <label>задача / описание *</label>
+        <textarea name="task" placeholder="Опишите выполненную работу..." required></textarea>
+      </div>
       <div class="fg full">
         <label>обоснование <span style="font-weight:400;color:var(--text3)">(письмо, документ, ссылка)</span></label>
-        <textarea name="basis" style="min-height:52px" placeholder="Номер письма, ссылка на документ..."></textarea>
+        <textarea name="basis" style="min-height:60px" placeholder="Номер письма, ссылка на документ..."></textarea>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">добавить задачу</button>
+    <div style="margin-top:1rem">
+      <button type="submit" class="btn btn-primary">добавить задачу</button>
+    </div>
   </form>
 </div>
 
+<!-- Task list section — visually separated -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:.875rem">
+  <div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">
+    список задач
+  </div>
+  <div style="flex:1;height:1px;background:var(--border)"></div>
+  <div style="font-size:12px;color:var(--text3)">{{ page_obj.paginator.count }} задач</div>
+</div>
+
+<!-- Filters -->
 <div class="filter-bar">
   <form method="get" style="display:contents">
-    <input type="text" name="search" placeholder="поиск..." value="{{ search }}">
+    <input type="text" name="search" placeholder="поиск по задачам..." value="{{ search }}">
     <input type="month" name="month" value="{{ month }}">
     <select name="status">
       <option value="">все статусы</option>
-      {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      {% for val,label in status_choices %}
+      <option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
     </select>
     <button type="submit" class="btn btn-ghost btn-sm">применить</button>
     {% if search or month or status_filter %}
@@ -98,7 +147,8 @@
           <a href="{% url 'task_edit' task.pk %}" class="btn btn-ghost btn-sm">редактировать</a>
           <form method="post" action="{% url 'task_delete' task.pk %}" style="display:inline"
                 onsubmit="return confirm('Удалить задачу?')">
-            {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">удалить</button>
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">удалить</button>
           </form>
         </div>
       </div>
@@ -108,14 +158,18 @@
 
   {% if page_obj.has_other_pages %}
   <div class="pagination">
-    {% if page_obj.has_previous %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>{% endif %}
+    {% if page_obj.has_previous %}
+    <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>
+    {% endif %}
     {% for n in page_obj.paginator.page_range %}
       {% if n == page_obj.number %}<span class="page-link current">{{ n }}</span>
       {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}
         <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}page={{ n }}">{{ n }}</a>
       {% endif %}
     {% endfor %}
-    {% if page_obj.has_next %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>{% endif %}
+    {% if page_obj.has_next %}
+    <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>
+    {% endif %}
   </div>
   {% endif %}
 {% else %}
