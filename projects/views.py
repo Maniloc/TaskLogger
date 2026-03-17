@@ -35,6 +35,30 @@ class _JsonEncoder(json.JSONEncoder):
 def _jdumps(obj):
     return json.dumps(obj, cls=_JsonEncoder)
 
+
+def _month_key(val):
+    """TruncMonth on SQLite may return str or datetime — handle both."""
+    from datetime import datetime as _dt, date as _d
+    if val is None:
+        return ''
+    if isinstance(val, str):
+        return val[:7]
+    if isinstance(val, (_dt, _d)):
+        return val.strftime('%Y-%m')
+    return str(val)[:7]
+
+
+def _day_key(val):
+    """TruncDate on SQLite may return str or datetime — handle both."""
+    from datetime import datetime as _dt, date as _d
+    if val is None:
+        return ''
+    if isinstance(val, str):
+        return val[:10]
+    if isinstance(val, (_dt, _d)):
+        return val.strftime('%Y-%m-%d')
+    return str(val)[:10]
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,7 +101,7 @@ def index(request):
         .values('day')
         .annotate(count=Count('id'), hours=Sum('hours'))
     )
-    daily_map = {row['day'].strftime('%Y-%m-%d'): row for row in daily_qs}
+    daily_map = {_day_key(row['day']): row for row in daily_qs}
     chart_days, chart_counts, chart_hours = [], [], []
     for i in range(14):
         d = fourteen_days_ago + timedelta(days=i)
@@ -565,7 +589,7 @@ def analytics(request):
     # Build full 12-month series (fill gaps with 0)
     months_map = {}
     for row in monthly_qs:
-        key = row['month'].strftime('%Y-%m')
+        key = _month_key(row['month'])
         months_map[key] = {
             'count': row['count'],
             'hours': float(row['hours'] or 0),
@@ -601,7 +625,7 @@ def analytics(request):
 
     daily_map = {}
     for row in daily_qs:
-        key = row['day'].strftime('%Y-%m-%d')
+        key = _day_key(row['day'])
         daily_map[key] = {
             'count': row['count'],
             'hours': float(row['hours'] or 0),
