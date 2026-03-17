@@ -97,11 +97,10 @@ def index(request):
     daily_qs = (
         Task.objects
         .filter(project__user=request.user, date__gte=fourteen_days_ago)
-        .annotate(day=TruncDate('date'))
-        .values('day')
+        .values('date')
         .annotate(count=Count('id'), hours=Sum('hours'))
     )
-    daily_map = {_day_key(row['day']): row for row in daily_qs}
+    daily_map = {str(row['date']): row for row in daily_qs}
     chart_days, chart_counts, chart_hours = [], [], []
     for i in range(14):
         d = fourteen_days_ago + timedelta(days=i)
@@ -580,16 +579,15 @@ def analytics(request):
     monthly_qs = (
         Task.objects
         .filter(project__user=request.user, date__gte=twelve_months_ago)
-        .annotate(month=TruncMonth('date'))
-        .values('month')
+        .values('date__year', 'date__month')
         .annotate(count=Count('id'), hours=Sum('hours'))
-        .order_by('month')
+        .order_by('date__year', 'date__month')
     )
 
     # Build full 12-month series (fill gaps with 0)
     months_map = {}
     for row in monthly_qs:
-        key = _month_key(row['month'])
+        key = f"{row['date__year']:04d}-{row['date__month']:02d}"
         months_map[key] = {
             'count': row['count'],
             'hours': float(row['hours'] or 0),
@@ -617,15 +615,14 @@ def analytics(request):
     daily_qs = (
         Task.objects
         .filter(project__user=request.user, date__gte=thirty_days_ago)
-        .annotate(day=TruncDate('date'))
-        .values('day')
+        .values('date')
         .annotate(count=Count('id'), hours=Sum('hours'))
-        .order_by('day')
+        .order_by('date')
     )
 
     daily_map = {}
     for row in daily_qs:
-        key = _day_key(row['day'])
+        key = str(row['date'])
         daily_map[key] = {
             'count': row['count'],
             'hours': float(row['hours'] or 0),
