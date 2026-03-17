@@ -1,0 +1,74 @@
+{% extends 'projects/base.html' %}
+{% block title %}Личный кабинет — TaskTracker{% endblock %}
+{% block content %}
+
+<div style="max-width:480px;margin:0 auto">
+
+  <div class="page-header" style="margin-bottom:1.5rem">
+    <div class="page-title">личный кабинет</div>
+  </div>
+
+  <!-- Avatar + name block -->
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:1.75rem;padding:1.25rem 1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px">
+    <div style="width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;letter-spacing:-.5px">
+      {{ profile.initials }}
+    </div>
+    <div>
+      <div style="font-size:18px;font-weight:600;color:var(--text);line-height:1.3">
+        {% if profile.full_name %}{{ profile.full_name }}{% else %}{{ user.username }}{% endif %}
+      </div>
+      {% if profile.position %}
+      <div style="font-size:13px;color:var(--text3);margin-top:3px">{{ profile.position }}{% if profile.department %} · {{ profile.department }}{% endif %}</div>
+      {% endif %}
+      <div style="font-size:12px;color:var(--text3);margin-top:3px">{{ user.username }}{% if user.email %} · {{ user.email }}{% endif %}</div>
+    </div>
+  </div>
+
+  <!-- Edit form -->
+  <div class="card">
+    <div class="card-title">редактировать профиль</div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="fg full">
+          <label>фамилия</label>
+          <input type="text" name="last_name" value="{{ profile.last_name }}" placeholder="Иванов">
+        </div>
+        <div class="fg">
+          <label>имя</label>
+          <input type="text" name="first_name" value="{{ profile.first_name }}" placeholder="Иван">
+        </div>
+        <div class="fg">
+          <label>отчество</label>
+          <input type="text" name="middle_name" value="{{ profile.middle_name }}" placeholder="Иванович">
+        </div>
+        <div class="fg">
+          <label>должность</label>
+          <input type="text" name="position" value="{{ profile.position }}" placeholder="Главный специалист">
+        </div>
+        <div class="fg">
+          <label>отдел</label>
+          <input type="text" name="department" value="{{ profile.department }}" placeholder="Отдел планирования">
+        </div>
+        <div class="fg full">
+          <label>email</label>
+          <input type="text" name="email" value="{{ user.email }}" placeholder="ivan@example.com">
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary">сохранить</button>
+        <a href="{% url 'index' %}" class="btn btn-ghost">отмена</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Account info -->
+  <div style="margin-top:1rem;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text3);line-height:1.7">
+    Логин: <span style="color:var(--text2)">{{ user.username }}</span><br>
+    Зарегистрирован: <span style="color:var(--text2)">{{ user.date_joined|date:"d.m.Y" }}</span><br>
+    Последний вход: <span style="color:var(--text2)">{{ user.last_login|date:"d.m.Y H:i" }}</span>
+  </div>
+
+</div>
+
+{% endblock %}

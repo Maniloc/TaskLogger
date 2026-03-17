@@ -197,6 +197,34 @@ nav {
 }
 .nav-logout:hover { color: #aaa; border-color: #555; }
 
+.nav-profile {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px; border-radius: 7px;
+  text-decoration: none;
+  transition: background .12s;
+  cursor: pointer;
+}
+.nav-profile:hover { background: rgba(255,255,255,.07); }
+[data-theme="light-paper"] .nav-profile:hover,
+[data-theme="light-warm"]  .nav-profile:hover { background: rgba(0,0,0,.06); }
+
+.nav-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+  letter-spacing: -.3px;
+}
+.nav-display-name {
+  font-size: 13px; color: #aaa; max-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-profile:hover .nav-display-name { color: #fff; }
+[data-theme="light-paper"] .nav-display-name,
+[data-theme="light-warm"]  .nav-display-name { color: #555; }
+[data-theme="light-paper"] .nav-profile:hover .nav-display-name,
+[data-theme="light-warm"]  .nav-profile:hover .nav-display-name { color: #111; }
+
 /* Theme dots */
 .theme-dot {
   width: 15px; height: 15px; border-radius: 50%;
@@ -527,7 +555,14 @@ select option { background: var(--bg3); color: var(--text); }
     <div class="theme-sep"></div>
     <div class="theme-dot" style="background:#2952cc;border-color:#ccc" title="Light Paper" onclick="setTheme('light-paper')" id="td-light-paper"></div>
     <div class="theme-dot" style="background:#b05c20;border-color:#ccc" title="Light Warm"  onclick="setTheme('light-warm')"  id="td-light-warm"></div>
-    <div class="nav-user">{{ user.username }}</div>
+    <a href="{% url 'profile' %}" class="nav-profile" title="Личный кабинет">
+      <div class="nav-avatar">
+        {% if user.profile.initials %}{{ user.profile.initials }}{% else %}{{ user.username|first|upper }}{% endif %}
+      </div>
+      <span class="nav-display-name">
+        {% if user.profile.display_name %}{{ user.profile.display_name }}{% else %}{{ user.username }}{% endif %}
+      </span>
+    </a>
     <a href="{% url 'logout' %}" class="nav-logout">выйти</a>
   </div>
 </nav>

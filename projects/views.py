@@ -483,6 +483,28 @@ def project_edit(request, pk):
     messages.success(request, f'Проект «{project.name}» обновлён')
     return redirect('project_detail', pk=pk)
 
+
+# ── Profile ───────────────────────────────────────────────
+
+@login_required
+def profile(request):
+    from .models import UserProfile
+    profile_obj, _ = UserProfile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        profile_obj.last_name   = request.POST.get('last_name', '').strip()
+        profile_obj.first_name  = request.POST.get('first_name', '').strip()
+        profile_obj.middle_name = request.POST.get('middle_name', '').strip()
+        profile_obj.position    = request.POST.get('position', '').strip()
+        profile_obj.department  = request.POST.get('department', '').strip()
+        profile_obj.save()
+        # also update Django's built-in fields
+        request.user.email = request.POST.get('email', '').strip()
+        request.user.save(update_fields=['email'])
+        messages.success(request, 'Профиль обновлён')
+        return redirect('profile')
+    return render(request, 'projects/profile.html', {'profile': profile_obj})
+
+
 # ── Admin Panel ───────────────────────────────────────────
 
 

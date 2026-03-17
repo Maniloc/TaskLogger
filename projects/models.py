@@ -72,3 +72,46 @@ class Task(models.Model):
             self.STATUS_DONE: '#059669',
             self.STATUS_DEFERRED: '#dc2626',
         }.get(self.status, '#6b7280')
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE,
+        related_name='profile', verbose_name='Пользователь'
+    )
+    last_name  = models.CharField('Фамилия',   max_length=100, blank=True)
+    first_name = models.CharField('Имя',        max_length=100, blank=True)
+    middle_name= models.CharField('Отчество',   max_length=100, blank=True)
+    position   = models.CharField('Должность',  max_length=200, blank=True)
+    department = models.CharField('Отдел',      max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = 'Профиль'
+        verbose_name_plural = 'Профили'
+
+    def __str__(self):
+        return self.display_name or self.user.username
+
+    @property
+    def display_name(self):
+        """Return 'Имя Отчество' if filled, else empty string."""
+        parts = [self.first_name, self.middle_name]
+        return ' '.join(p for p in parts if p).strip()
+
+    @property
+    def full_name(self):
+        """Return 'Фамилия Имя Отчество'."""
+        parts = [self.last_name, self.first_name, self.middle_name]
+        return ' '.join(p for p in parts if p).strip()
+
+    @property
+    def initials(self):
+        """Return 'ИП' for avatar circle."""
+        parts = []
+        if self.first_name:
+            parts.append(self.first_name[0].upper())
+        if self.middle_name:
+            parts.append(self.middle_name[0].upper())
+        if not parts and self.last_name:
+            parts.append(self.last_name[0].upper())
+        return ''.join(parts) or self.user.username[:2].upper()
