@@ -19,6 +19,22 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 from .models import Project, Task
 
+
+class _JsonEncoder(json.JSONEncoder):
+    """Handle Decimal and date types in json.dumps."""
+    def default(self, obj):
+        from decimal import Decimal as _D
+        import datetime as _dt
+        if isinstance(obj, _D):
+            return float(obj)
+        if isinstance(obj, (_dt.date, _dt.datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+def _jdumps(obj):
+    return json.dumps(obj, cls=_JsonEncoder)
+
 logger = logging.getLogger(__name__)
 
 
@@ -612,8 +628,8 @@ def analytics(request):
     ).aggregate(count=Count('id'), hours=Sum('hours'))
 
     return render(request, 'projects/analytics.html', {
-        'monthly_labels': json.dumps(monthly_labels),
-        'monthly_counts': json.dumps(monthly_counts),
+        'monthly_labels': _jdumps(monthly_labels),
+        'monthly_counts': _jdumps(monthly_counts),
         'monthly_hours':  json.dumps(monthly_hours),
         'daily_labels':   json.dumps(daily_labels),
         'daily_counts':   json.dumps(daily_counts),

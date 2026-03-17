@@ -12,19 +12,19 @@
 
 {% if not projects %}
 <div class="onboard-tip">
-  <div style="font-size:24px;opacity:.7">👋</div>
+  <div style="font-size:26px;line-height:1">👋</div>
   <div>
-    <strong>Добро пожаловать в TaskLogger!</strong>
-    Начните с создания проекта — нажмите «+ новый проект» справа вверху.
-    Потом добавляйте задачи через кнопку <strong>«+ задача»</strong> в меню или прямо внутри проекта.
-    В конце месяца сформируйте отчёт во вкладке <strong>«отчёт»</strong>.
+    <strong>Добро пожаловать в TaskLogger!</strong><br>
+    Начните с создания проекта — нажмите <strong>«+ новый проект»</strong> справа вверху.<br>
+    Потом добавляйте задачи через кнопку <strong>«+ задача»</strong> в меню.<br>
+    В конце месяца формируйте отчёт во вкладке <strong>«отчёт»</strong>.
   </div>
 </div>
 {% endif %}
 
 {% if gap_days %}
 <div class="reminder-banner">
-  <span style="font-size:16px">⚠</span>
+  <span>⚠</span>
   Вы не добавляли задачи {{ gap_days }} дн. — не забудьте записать, что делали.
 </div>
 {% endif %}
@@ -60,7 +60,12 @@
     {% for project in projects %}
     <a href="{% url 'project_detail' project.pk %}" class="proj-item">
       <div class="proj-dot"></div>
-      <div class="proj-name">{{ project.name }}</div>
+      <div style="flex:1;min-width:0">
+        <div class="proj-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ project.name }}</div>
+        {% if project.hours_total %}
+        <div style="font-size:11px;color:var(--text3);margin-top:1px">{{ project.hours_total|floatformat:1 }}ч</div>
+        {% endif %}
+      </div>
       <div class="proj-cnt">{{ project.task_count_ann }}</div>
     </a>
     {% empty %}
@@ -73,7 +78,7 @@
     <div class="sidebar-label" style="margin-bottom:12px">последние задачи этого месяца</div>
     {% if recent_tasks %}
       {% for task in recent_tasks %}
-      <div class="card">
+      <div class="card" style="border-left:3px solid {{ task.status_color }}">
         <div class="task-row">
           <div class="dot dot-{{ task.status }}" title="{{ task.get_status_display }}"></div>
           <div style="flex:1">
@@ -92,41 +97,10 @@
       <div class="empty">
         <div class="empty-icon">📋</div>
         задач в этом месяце пока нет<br>
-        <span style="font-size:13px">нажмите «+ задача» в верхнем меню</span>
+        <span style="font-size:13px;margin-top:6px;display:block">нажмите «+ задача» в верхнем меню</span>
       </div>
     {% endif %}
   </div>
 </div>
-
-<!-- Project cards (full width below) -->
-{% if projects %}
-<div style="margin-top:2rem">
-  <div class="sidebar-label" style="margin-bottom:12px">все проекты</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
-    {% for project in projects %}
-    <a href="{% url 'project_detail' project.pk %}" class="proj-card">
-      <div class="proj-card-icon">{{ project.name|first|upper }}</div>
-      <div class="proj-card-body">
-        <div class="proj-card-name">{{ project.name }}</div>
-        <div class="proj-card-meta">
-          {% if project.initiator %}{{ project.initiator }}{% endif %}
-          {% if project.description %}<br>{{ project.description|truncatechars:60 }}{% endif %}
-        </div>
-      </div>
-      <div class="proj-card-stats">
-        <div class="proj-stat-val">{{ project.task_count_ann }}</div>
-        <div class="proj-stat-lbl">задач</div>
-        {% if project.hours_total %}
-        <div style="margin-top:6px">
-          <div class="proj-stat-val" style="font-size:14px">{{ project.hours_total|floatformat:1 }}ч</div>
-          <div class="proj-stat-lbl">часов</div>
-        </div>
-        {% endif %}
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 
 {% endblock %}
