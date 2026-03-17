@@ -1,0 +1,174 @@
+{% extends 'projects/base.html' %}
+{% block title %}Отчёт — TaskTracker{% endblock %}
+{% block content %}
+
+<div class="page-title" style="margin-bottom:1.25rem">отчёт</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <form method="get">
+    <div class="form-grid">
+      <div class="fg"><label>с</label><input type="date" name="date_from" value="{{ date_from }}"></div>
+      <div class="fg"><label>по</label><input type="date" name="date_to" value="{{ date_to }}"></div>
+      <div class="fg"><label>проект</label>
+        <select name="project">
+          <option value="">все проекты</option>
+          {% for p in projects %}<option value="{{ p.pk }}"{% if project_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>группировка</label>
+        <select name="group_by">
+          <option value="project"{% if group_by == "project" %} selected{% endif %}>по проекту</option>
+          <option value="date"{% if group_by == "date" %} selected{% endif %}>по дате</option>
+          <option value="none"{% if group_by == "none" %} selected{% endif %}>без группировки</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button type="submit" class="btn btn-primary">сформировать</button>
+      {% if total %}<a href="?{{ request.GET.urlencode }}&export=xlsx" class="btn btn-ghost">скачать xlsx</a>{% endif %}
+      {% if total %}<button type="button" class="btn btn-ghost" onclick="copyReport()">скопировать текст</button>{% endif %}
+    </div>
+  </form>
+</div>
+
+{% if total is not None %}
+{% if total == 0 %}
+  <div class="empty">задачи за выбранный период не найдены</div>
+{% else %}
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-val">{{ total }}</div><div class="stat-lbl">задач</div></div>
+  <div class="stat-card"><div class="stat-val">{{ total_hours|floatformat:1 }}ч</div><div class="stat-lbl">итого часов</div></div>
+  <div class="stat-card"><div class="stat-val">{{ grouped|length }}</div><div class="stat-lbl">групп</div></div>
+</div>
+
+<div style="display:flex;gap:6px;margin-bottom:1rem">
+  <button class="btn btn-ghost btn-sm" id="btn-vis" onclick="showView('vis')">таблицей</button>
+  <button class="btn btn-ghost btn-sm" id="btn-txt" onclick="showView('txt')">текстом</button>
+</div>
+
+<div id="view-vis">
+{% if group_by == "project" %}
+  {% for grp,gtasks in grouped.items %}
+  <div style="margin-bottom:1.5rem">
+    <div class="report-group-title">
+      <span>{{ grp.name }}</span>
+      <span style="font-size:12px;font-weight:400;color:var(--text3)">{{ gtasks|length }} зад.</span>
+    </div>
+    {% if grp.initiator %}<div style="font-size:12px;color:var(--text3);margin-bottom:8px">инициатор: {{ grp.initiator }}{% if grp.description %} · {{ grp.description|truncatechars:80 }}{% endif %}</div>{% endif %}
+    {% for task in gtasks %}
+    <div class="card" style="margin-bottom:8px">
+      <div class="task-row">
+        <div class="dot dot-{{ task.status }}"></div>
+        <div style="flex:1">
+          <div class="task-text">{{ task.task }}</div>
+          <div class="task-meta">
+            <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+            {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+            {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+          </div>
+          {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+{% elif group_by == "date" %}
+  {% for grp,gtasks in grouped.items %}
+  <div style="margin-bottom:1.25rem">
+    <div class="report-group-title">
+      <span>{{ grp|date:"d.m.Y" }}</span>
+      <span style="font-size:12px;font-weight:400;color:var(--text3)">{{ gtasks|length }} зад.</span>
+    </div>
+    {% for task in gtasks %}
+    <div class="card" style="margin-bottom:8px">
+      <div class="task-row">
+        <div class="dot dot-{{ task.status }}"></div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">{{ task.project.name }}</div>
+          <div class="task-text">{{ task.task }}</div>
+          <div class="task-meta">
+            {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+            {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+          </div>
+          {% if task.basis %}<div class="task-basis">{{ task.basis }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+{% else %}
+  {% for task in tasks %}
+  <div class="card" style="margin-bottom:8px">
+    <div class="task-row">
+      <div class="dot dot-{{ task.status }}"></div>
+      <div style="flex:1">
+        <div class="task-text">{{ task.task }}</div>
+        <div class="task-meta">
+          <span class="badge b-proj">{{ task.project.name }}</span>
+          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+        </div>
+        {% if task.basis %}<div class="task-basis">{{ task.basis }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+<div id="view-txt" style="display:none">
+<div class="text-report" id="report-text">{% spaceless %}ОТЧЁТ О ВЫПОЛНЕННЫХ ЗАДАЧАХ
+{% if date_from %}Период: {{ date_from|date:"d.m.Y" }}{% endif %}{% if date_to %} — {{ date_to|date:"d.m.Y" }}{% endif %}
+{% if selected_project %}Проект: {{ selected_project.name }}{% endif %}
+Итого часов: {{ total_hours|floatformat:1 }}
+
+{% if group_by == "project" %}{% for grp,gtasks in grouped.items %}
+══ {{ grp.name }} ({{ gtasks|length }} зад.)
+{% if grp.initiator %}   Инициатор: {{ grp.initiator }}
+{% endif %}{% if grp.description %}   Обоснование: {{ grp.description }}
+{% endif %}
+{% for task in gtasks %}   {{ task.date|date:"d.m.Y" }}  [{{ task.get_status_display }}]  {{ task.task }}
+{% if task.hours %}          Часы: {{ task.hours }}
+{% endif %}{% if task.initiator %}          Инициатор: {{ task.initiator }}
+{% endif %}{% if task.basis %}          Обоснование: {{ task.basis }}
+{% endif %}{% endfor %}
+{% endfor %}{% elif group_by == "date" %}{% for grp,gtasks in grouped.items %}
+── {{ grp|date:"d.m.Y" }}
+{% for task in gtasks %}   [{{ task.project.name }}]  {{ task.task }}
+{% if task.hours %}   Часы: {{ task.hours }}
+{% endif %}{% if task.basis %}   Обоснование: {{ task.basis }}
+{% endif %}{% endfor %}
+{% endfor %}{% else %}{% for task in tasks %}
+{{ task.date|date:"d.m.Y" }}  [{{ task.project.name }}]  {{ task.task }}
+{% if task.hours %}  Часы: {{ task.hours }}
+{% endif %}{% if task.basis %}  Обоснование: {{ task.basis }}
+{% endif %}{% endfor %}{% endif %}
+Итого задач: {{ total }}
+{% endspaceless %}</div>
+</div>
+
+{% endif %}{% endif %}
+
+<script>
+function showView(v) {
+  document.getElementById('view-vis').style.display = v==='vis'?'block':'none';
+  document.getElementById('view-txt').style.display = v==='txt'?'block':'none';
+  document.getElementById('btn-vis').style.color = v==='vis'?'var(--text)':'';
+  document.getElementById('btn-txt').style.color = v==='txt'?'var(--text)':'';
+}
+function copyReport() {
+  showView('txt');
+  const text = document.getElementById('report-text').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const b = document.querySelector('[onclick="copyReport()"]');
+    const o = b.textContent; b.textContent = 'скопировано!';
+    setTimeout(() => b.textContent = o, 2000);
+  });
+}
+</script>
+{% endblock %}

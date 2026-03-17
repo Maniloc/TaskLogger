@@ -1,0 +1,19 @@
+{% extends 'projects/base.html' %}
+{% block title %}Вход — TaskTracker{% endblock %}
+{% block content %}
+<div style="max-width:340px;margin:4rem auto">
+  <div style="text-align:center;margin-bottom:2rem">
+    <div style="font-size:20px;font-weight:700;color:var(--text)">tt<span style="color:var(--accent)">/</span></div>
+    <div style="font-size:13px;color:var(--text3);margin-top:4px">tasktracker</div>
+  </div>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="fg" style="margin-bottom:10px"><label>логин</label><input type="text" name="username" autofocus required></div>
+      <div class="fg" style="margin-bottom:14px"><label>пароль</label><input type="password" name="password" required></div>
+      {% if form.errors %}<div class="message error" style="margin-bottom:12px">неверный логин или пароль</div>{% endif %}
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">войти</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

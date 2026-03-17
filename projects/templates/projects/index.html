@@ -1,0 +1,75 @@
+{% extends 'projects/base.html' %}
+{% block title %}Дашборд — TaskTracker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">дашборд</div>
+    <div class="page-sub">{{ today|date:"j E Y" }}</div>
+  </div>
+  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('npf').style.display=document.getElementById('npf').style.display==='none'?'block':'none'">+ новый проект</button>
+</div>
+
+<div id="npf" style="display:none;margin-bottom:1rem">
+<div class="card">
+  <div class="card-title">новый проект</div>
+  <form method="post" action="{% url 'project_create' %}">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="fg"><label>название *</label><input type="text" name="name" placeholder="Название проекта" autofocus required></div>
+      <div class="fg"><label>инициатор</label><input type="text" name="initiator" placeholder="Кто инициировал"></div>
+      <div class="fg full"><label>описание / обоснование</label><textarea name="description" style="min-height:52px" placeholder="Ссылка на письмо, документ..."></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button type="submit" class="btn btn-primary">создать</button>
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('npf').style.display='none'">отмена</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-val">{{ tasks_count }}</div><div class="stat-lbl">задач в этом месяце</div></div>
+  <div class="stat-card"><div class="stat-val">{{ tasks_hours|floatformat:1 }}ч</div><div class="stat-lbl">часов в этом месяце</div></div>
+  <div class="stat-card"><div class="stat-val">{{ projects.count }}</div><div class="stat-lbl">проектов</div></div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="sidebar-label">проекты</div>
+    {% for project in projects %}
+    <a href="{% url 'project_detail' project.pk %}" class="proj-item">
+      <div class="proj-dot"></div>
+      <div class="proj-name">{{ project.name }}</div>
+      <div class="proj-cnt">{{ project.task_count_ann }}</div>
+    </a>
+    {% empty %}
+    <div style="font-size:13px;color:var(--text3);padding:8px 4px">нет проектов</div>
+    {% endfor %}
+  </div>
+
+  <div>
+    <div class="sidebar-label" style="margin-bottom:10px">последние задачи этого месяца</div>
+    {% if recent_tasks %}
+      {% for task in recent_tasks %}
+      <div class="card">
+        <div class="task-row">
+          <div class="dot dot-{{ task.status }}"></div>
+          <div style="flex:1">
+            <div class="task-text">{{ task.task|truncatechars:110 }}</div>
+            <div class="task-meta">
+              <span class="badge b-proj">{{ task.project.name }}</span>
+              <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+              {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">задач в этом месяце пока нет —<br>нажмите «+ задача» в верхнем меню</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
