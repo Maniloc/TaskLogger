@@ -12,14 +12,15 @@
 {% if total_all.count == 0 %}
 <div class="no-data-notice">
   <strong>Нет данных для отображения</strong>
-  Добавьте первые задачи — и здесь появятся графики активности, статистика по проектам и динамика по месяцам.
+  Добавьте первые задачи — и здесь появятся графики.
   <div style="margin-top:12px">
     <button class="btn btn-primary btn-sm" onclick="toggleQuick()">+ добавить задачу</button>
   </div>
 </div>
 {% else %}
 
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem">
+<!-- Summary stat cards -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1.75rem">
   <div class="stat-card">
     <div class="stat-val">{{ total_all.count|default:0 }}</div>
     <div class="stat-lbl">всего задач</div>
@@ -37,7 +38,7 @@
         {% endif %}
       {% endif %}
     </div>
-    <div class="stat-lbl">задач в этом месяце</div>
+    <div class="stat-lbl">задач в месяце</div>
   </div>
   <div class="stat-card">
     <div class="stat-val">
@@ -48,11 +49,15 @@
         {% endif %}
       {% endif %}
     </div>
-    <div class="stat-lbl">часов в этом месяце</div>
+    <div class="stat-lbl">часов в месяце</div>
+  </div>
+  <div class="stat-card" style="{% if overdue_total %}border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.06){% endif %}">
+    <div class="stat-val" style="{% if overdue_total %}color:var(--red){% endif %}">{{ overdue_total }}</div>
+    <div class="stat-lbl" style="{% if overdue_total %}color:var(--red){% endif %}">просрочено</div>
   </div>
 </div>
 
-<!-- Monthly dynamics -->
+<!-- Monthly dynamics — stacked bar: done + overdue -->
 <div class="card" style="margin-bottom:1.25rem">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
     <div class="card-title" style="margin-bottom:0">динамика по месяцам — 12 мес.</div>
@@ -61,10 +66,19 @@
       <button class="btn btn-ghost btn-sm" id="m-hours-btn" onclick="setMonthlyMode('hours')">часы</button>
     </div>
   </div>
+  <!-- Legend -->
+  <div style="display:flex;gap:16px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
+      <div style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.8"></div>выполнено
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
+      <div style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></div>просрочено
+    </div>
+  </div>
   <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
 </div>
 
-<!-- Daily activity -->
+<!-- Daily activity — stacked bar: done + overdue -->
 <div class="card" style="margin-bottom:1.25rem">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
     <div class="card-title" style="margin-bottom:0">активность по дням — 30 дней</div>
@@ -73,10 +87,18 @@
       <button class="btn btn-ghost btn-sm" id="d-hours-btn" onclick="setDailyMode('hours')">часы</button>
     </div>
   </div>
+  <div style="display:flex;gap:16px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
+      <div style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.8"></div>выполнено
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
+      <div style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></div>просрочено в этот день
+    </div>
+  </div>
   <div style="position:relative;height:180px"><canvas id="dailyChart"></canvas></div>
 </div>
 
-<!-- Status + Projects -->
+<!-- Status donut + Overdue by project -->
 <div style="display:grid;grid-template-columns:1fr 2fr;gap:1.25rem;margin-bottom:1.25rem">
   <div class="card" style="margin-bottom:0">
     <div class="card-title">статусы задач</div>
@@ -89,13 +111,29 @@
     <div class="no-data-notice" style="padding:1.5rem;margin-top:0">нет данных</div>
     {% endif %}
   </div>
-  <div class="card" style="margin-bottom:0">
-    <div class="card-title">топ проектов по часам</div>
-    {% if proj_hours %}
-    <div style="position:relative;height:200px"><canvas id="projectsChart"></canvas></div>
-    {% else %}
-    <div class="no-data-notice" style="padding:1.5rem;margin-top:0">нет данных по часам</div>
-    {% endif %}
+
+  <div style="display:grid;grid-template-rows:1fr 1fr;gap:1.25rem">
+    <!-- Top projects by hours -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">топ проектов по часам</div>
+      {% if proj_hours %}
+      <div style="position:relative;height:130px"><canvas id="projectsChart"></canvas></div>
+      {% else %}
+      <div class="no-data-notice" style="padding:1rem;margin-top:0">нет данных по часам</div>
+      {% endif %}
+    </div>
+
+    <!-- Overdue by project -->
+    <div class="card" style="margin-bottom:0;{% if overdue_total %}border-color:rgba(248,113,113,.25){% endif %}">
+      <div class="card-title" style="{% if overdue_total %}color:var(--red){% endif %}">просрочено по проектам</div>
+      {% if overdue_total %}
+      <div style="position:relative;height:130px"><canvas id="overdueChart"></canvas></div>
+      {% else %}
+      <div style="font-size:13px;color:var(--green);padding:1rem 0;display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">✓</span> Просроченных задач нет
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -103,177 +141,215 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-const monthlyLabels = {{ monthly_labels|safe }};
-const monthlyCounts = {{ monthly_counts|safe }};
-const monthlyHours  = {{ monthly_hours|safe }};
-const dailyLabels   = {{ daily_labels|safe }};
-const dailyCounts   = {{ daily_counts|safe }};
-const dailyHours    = {{ daily_hours|safe }};
-const statusLabels  = {{ status_labels|safe }};
-const statusCounts  = {{ status_counts|safe }};
-const projLabels    = {{ proj_labels|safe }};
-const projHours     = {{ proj_hours|safe }};
+const monthlyLabels  = {{ monthly_labels|safe }};
+const monthlyCounts  = {{ monthly_counts|safe }};
+const monthlyHours   = {{ monthly_hours|safe }};
+const monthlyOverdue = {{ monthly_overdue|safe }};
+const dailyLabels    = {{ daily_labels|safe }};
+const dailyCounts    = {{ daily_counts|safe }};
+const dailyHours     = {{ daily_hours|safe }};
+const dailyOverdue   = {{ daily_overdue|safe }};
+const statusLabels   = {{ status_labels|safe }};
+const statusCounts   = {{ status_counts|safe }};
+const projLabels     = {{ proj_labels|safe }};
+const projHours      = {{ proj_hours|safe }};
+const overdueLabels  = {{ overdue_proj_labels|safe }};
+const overdueCounts  = {{ overdue_proj_counts|safe }};
 
-function cv(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
-function gc() {
+function cv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function gc(){
   return {
-    accent: cv('--accent'), accent2: cv('--accent2'),
-    green: cv('--green'), amber: cv('--amber'), red: cv('--red'),
-    text: cv('--text'), text2: cv('--text2'), text3: cv('--text3'),
-    border: cv('--border'), bg2: cv('--bg2'), bg3: cv('--bg3'),
-    tagBg: cv('--tag-bg'),
+    accent:cv('--accent'), accent2:cv('--accent2'),
+    green:cv('--green'), amber:cv('--amber'), red:cv('--red'),
+    text:cv('--text'), text2:cv('--text2'), text3:cv('--text3'),
+    border:cv('--border'), bg2:cv('--bg2'), bg3:cv('--bg3'),
   };
 }
-
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 Chart.defaults.font.size = 12;
 
-function gridOpts(c) { return { color: c.border, drawBorder: false }; }
-function tickOpts(c) { return { color: c.text3, font: { size: 11 } }; }
-function tooltipOpts(c) {
-  return {
-    backgroundColor: c.bg3, titleColor: c.text, bodyColor: c.text2,
-    borderColor: c.border, borderWidth: 1,
-  };
+function gridOpts(c){ return { color: c.border, drawBorder: false }; }
+function tickOpts(c){ return { color: c.text3, font: { size: 11 } }; }
+function tipOpts(c){
+  return { backgroundColor:c.bg3, titleColor:c.text, bodyColor:c.text2, borderColor:c.border, borderWidth:1 };
 }
 
-// ── Monthly ──
+// ── Monthly stacked bar ──
 let monthlyMode = 'tasks', monthlyChart;
-function buildMonthly() {
+function buildMonthly(){
   const c = gc();
-  if (monthlyChart) monthlyChart.destroy();
-  const data = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
+  if(monthlyChart) monthlyChart.destroy();
+  const mainData    = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
+  const mainLabel   = monthlyMode === 'tasks' ? 'Выполнено' : 'Часы';
+  const suffix      = monthlyMode === 'hours' ? 'ч' : ' зад.';
   monthlyChart = new Chart(document.getElementById('monthlyChart'), {
     type: 'bar',
     data: {
       labels: monthlyLabels,
-      datasets: [{
-        label: monthlyMode === 'tasks' ? 'Задачи' : 'Часы',
-        data,
-        backgroundColor: c.accent + '88',
-        borderColor: c.accent,
-        borderWidth: 1.5, borderRadius: 5,
-        hoverBackgroundColor: c.accent,
-      }]
+      datasets: [
+        {
+          label: mainLabel,
+          data: mainData,
+          backgroundColor: c.accent + '88',
+          borderColor: c.accent,
+          borderWidth: 1, borderRadius: 4,
+          stack: 'stack',
+        },
+        {
+          label: 'Просрочено',
+          data: monthlyOverdue,
+          backgroundColor: c.red + '77',
+          borderColor: c.red,
+          borderWidth: 1, borderRadius: 4,
+          stack: 'stack',
+        },
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { ...tooltipOpts(c), callbacks: {
-          label: ctx => monthlyMode === 'hours' ? ` ${ctx.parsed.y.toFixed(1)}ч` : ` ${ctx.parsed.y} задач`
+        tooltip: { ...tipOpts(c), callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}${suffix}`
         }}
       },
       scales: {
-        x: { grid: gridOpts(c), ticks: { ...tickOpts(c), maxRotation: 40 } },
-        y: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
+        x: { stacked: true, grid: gridOpts(c), ticks: { ...tickOpts(c), maxRotation: 40 } },
+        y: { stacked: true, grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
       }
     }
   });
 }
-function setMonthlyMode(m) {
+function setMonthlyMode(m){
   monthlyMode = m; buildMonthly();
   document.getElementById('m-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
   document.getElementById('m-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
 }
 
-// ── Daily ──
+// ── Daily stacked bar ──
 let dailyMode = 'tasks', dailyChart;
-function buildDaily() {
+function buildDaily(){
   const c = gc();
-  if (dailyChart) dailyChart.destroy();
-  const data = dailyMode === 'tasks' ? dailyCounts : dailyHours;
+  if(dailyChart) dailyChart.destroy();
+  const mainData  = dailyMode === 'tasks' ? dailyCounts : dailyHours;
+  const mainLabel = dailyMode === 'tasks' ? 'Выполнено' : 'Часы';
+  const suffix    = dailyMode === 'hours' ? 'ч' : ' зад.';
   dailyChart = new Chart(document.getElementById('dailyChart'), {
     type: 'bar',
     data: {
       labels: dailyLabels,
-      datasets: [{
-        label: dailyMode === 'tasks' ? 'Задачи' : 'Часы',
-        data,
-        backgroundColor: ctx => {
-          const v = ctx.parsed.y;
-          if (!v) return c.border;
-          if (v >= 5) return c.green + 'cc';
-          if (v >= 3) return c.accent + 'cc';
-          return c.accent2 + '77';
+      datasets: [
+        {
+          label: mainLabel,
+          data: mainData,
+          backgroundColor: ctx => {
+            const v = ctx.parsed.y;
+            if(!v) return c.border;
+            if(v >= 5) return c.green + 'cc';
+            if(v >= 3) return c.accent + 'cc';
+            return c.accent2 + '77';
+          },
+          borderColor: 'transparent', borderRadius: 3,
+          stack: 'stack',
         },
-        borderColor: 'transparent', borderRadius: 3,
-      }]
+        {
+          label: 'Просрочено',
+          data: dailyOverdue,
+          backgroundColor: c.red + '77',
+          borderColor: c.red,
+          borderWidth: 1, borderRadius: 3,
+          stack: 'stack',
+        },
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { ...tooltipOpts(c), callbacks: {
-          label: ctx => dailyMode === 'hours' ? ` ${ctx.parsed.y.toFixed(1)}ч` : ` ${ctx.parsed.y} задач`
+        tooltip: { ...tipOpts(c), callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${dailyMode==='hours' ? ctx.parsed.y.toFixed(1)+'ч' : ctx.parsed.y+' зад.'}`
         }}
       },
       scales: {
-        x: { grid: { display: false }, ticks: { ...tickOpts(c), maxTicksLimit: 15 } },
-        y: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
+        x: { stacked: true, grid: {display:false}, ticks: { ...tickOpts(c), maxTicksLimit: 15 } },
+        y: { stacked: true, grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
       }
     }
   });
 }
-function setDailyMode(m) {
+function setDailyMode(m){
   dailyMode = m; buildDaily();
   document.getElementById('d-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
   document.getElementById('d-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
 }
 
 // ── Status donut ──
-function buildStatus() {
+function buildStatus(){
   const c = gc();
   const colors = [c.green, c.amber, c.text3, c.red];
   new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
       labels: statusLabels,
-      datasets: [{
-        data: statusCounts,
-        backgroundColor: colors.map(col => col + 'cc'),
-        borderColor: c.bg2, borderWidth: 3, hoverOffset: 6,
-      }]
+      datasets: [{ data: statusCounts, backgroundColor: colors.map(col => col+'cc'), borderColor: c.bg2, borderWidth: 3, hoverOffset: 6 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false, cutout: '62%',
-      plugins: { legend: { display: false }, tooltip: tooltipOpts(c) }
+      plugins: { legend: { display: false }, tooltip: tipOpts(c) }
     }
   });
   const legend = document.getElementById('status-legend');
-  if (legend) {
-    legend.innerHTML = statusLabels.map((lbl, i) => `
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:${c.text2}">
-        <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
-        <span style="flex:1">${lbl}</span>
-        <span style="font-weight:600;color:${c.text}">${statusCounts[i]}</span>
-      </div>`).join('');
-  }
+  if(legend) legend.innerHTML = statusLabels.map((lbl, i) => `
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:${c.text2}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+      <span style="flex:1">${lbl}</span>
+      <span style="font-weight:600;color:${c.text}">${statusCounts[i]}</span>
+    </div>`).join('');
 }
 
 // ── Projects horizontal bar ──
-function buildProjects() {
+function buildProjects(){
   const c = gc();
   new Chart(document.getElementById('projectsChart'), {
     type: 'bar',
     data: {
       labels: projLabels,
+      datasets: [{ label:'Часы', data:projHours, backgroundColor:c.amber+'88', borderColor:c.amber, borderWidth:1.5, borderRadius:4 }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x.toFixed(1)}ч`}} },
+      scales: {
+        x: { grid:gridOpts(c), ticks:tickOpts(c), beginAtZero:true },
+        y: { grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}} },
+      }
+    }
+  });
+}
+
+// ── Overdue by project ──
+function buildOverdue(){
+  const c = gc();
+  const el = document.getElementById('overdueChart');
+  if(!el || !overdueCounts.length) return;
+  new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: overdueLabels,
       datasets: [{
-        label: 'Часы', data: projHours,
-        backgroundColor: c.amber + '88', borderColor: c.amber,
+        label: 'Просрочено',
+        data: overdueCounts,
+        backgroundColor: c.red + '77',
+        borderColor: c.red,
         borderWidth: 1.5, borderRadius: 4,
-        hoverBackgroundColor: c.amber,
       }]
     },
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { ...tooltipOpts(c), callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}ч` } }
-      },
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x} задач`}} },
       scales: {
-        x: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
-        y: { grid: { display: false }, ticks: { ...tickOpts(c), font: { size: 12 } } },
+        x: { grid:gridOpts(c), ticks:{...tickOpts(c), stepSize:1}, beginAtZero:true },
+        y: { grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}} },
       }
     }
   });
@@ -282,16 +358,20 @@ function buildProjects() {
 // Init
 buildMonthly();
 buildDaily();
-if (document.getElementById('statusChart')  && statusCounts.length) buildStatus();
-if (document.getElementById('projectsChart') && projHours.length)   buildProjects();
+if(document.getElementById('statusChart')  && statusCounts.length)  buildStatus();
+if(document.getElementById('projectsChart') && projHours.length)    buildProjects();
+if(document.getElementById('overdueChart')  && overdueCounts.length) buildOverdue();
 
-// Rebuild on theme change
-window.__rebuildCharts = function() {
+// Rebuild on theme switch
+window.__rebuildCharts = function(){
   buildMonthly(); buildDaily();
-  const sc = document.getElementById('statusChart');
-  const pc = document.getElementById('projectsChart');
-  if (sc) { Chart.getChart(sc)?.destroy(); if (statusCounts.length) buildStatus(); }
-  if (pc) { Chart.getChart(pc)?.destroy(); if (projHours.length) buildProjects(); }
+  ['statusChart','projectsChart','overdueChart'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) Chart.getChart(el)?.destroy();
+  });
+  if(statusCounts.length)  buildStatus();
+  if(projHours.length)     buildProjects();
+  if(overdueCounts.length) buildOverdue();
 };
 </script>
 

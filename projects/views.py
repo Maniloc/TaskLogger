@@ -761,19 +761,98 @@ def analytics(request):
         date__lte=last_month_end,
     ).aggregate(count=Count('id'), hours=Sum('hours'))
 
+    # ── 5. Overdue tasks by month (due_date in past, not done) ──
+    overdue_monthly_qs = (
+        Task.objects
+        .filter(
+            project__user=request.user,
+            due_date__isnull=False,
+            due_date__lt=today,
+            due_date__gte=twelve_months_ago,
+        )
+        .exclude(status=Task.STATUS_DONE)
+        .values('due_date__year', 'due_date__month')
+        .annotate(count=Count('id'))
+        .order_by('due_date__year', 'due_date__month')
+    )
+    overdue_monthly_map = {}
+    for row in overdue_monthly_qs:
+        key = f"{row['due_date__year']:04d}-{row['due_date__month']:02d}"
+        overdue_monthly_map[key] = row['count']
+
+    monthly_overdue = []
+    cursor2 = twelve_months_ago
+    while cursor2 <= today.replace(day=1):
+        key = cursor2.strftime('%Y-%m')
+        monthly_overdue.append(overdue_monthly_map.get(key, 0))
+        if cursor2.month == 12:
+            cursor2 = cursor2.replace(year=cursor2.year + 1, month=1)
+        else:
+            cursor2 = cursor2.replace(month=cursor2.month + 1)
+
+    # ── 6. Overdue tasks by day (last 30 days) ──
+    overdue_daily_qs = (
+        Task.objects
+        .filter(
+            project__user=request.user,
+            due_date__isnull=False,
+            due_date__gte=thirty_days_ago,
+            due_date__lt=today,
+        )
+        .exclude(status=Task.STATUS_DONE)
+        .values('due_date')
+        .annotate(count=Count('id'))
+        .order_by('due_date')
+    )
+    overdue_daily_map = {str(r['due_date']): r['count'] for r in overdue_daily_qs}
+    daily_overdue = []
+    for i in range(30):
+        d = thirty_days_ago + timedelta(days=i)
+        daily_overdue.append(overdue_daily_map.get(d.strftime('%Y-%m-%d'), 0))
+
+    # ── 7. Overdue summary ──
+    overdue_total = Task.objects.filter(
+        project__user=request.user,
+        due_date__lt=today,
+        due_date__isnull=False,
+    ).exclude(status=Task.STATUS_DONE).count()
+
+    overdue_by_project = (
+        Project.objects
+        .filter(user=request.user)
+        .annotate(
+            overdue_count=Count(
+                'tasks',
+                filter=__import__('django.db.models', fromlist=['Q']).Q(
+                    tasks__due_date__lt=today,
+                    tasks__due_date__isnull=False,
+                ) & ~__import__('django.db.models', fromlist=['Q']).Q(tasks__status=Task.STATUS_DONE)
+            )
+        )
+        .filter(overdue_count__gt=0)
+        .order_by('-overdue_count')[:6]
+    )
+    overdue_proj_labels = _jdumps([p.name for p in overdue_by_project])
+    overdue_proj_counts = _jdumps([p.overdue_count for p in overdue_by_project])
+
     return render(request, 'projects/analytics.html', {
-        'monthly_labels': _jdumps(monthly_labels),
-        'monthly_counts': _jdumps(monthly_counts),
-        'monthly_hours':  json.dumps(monthly_hours),
-        'daily_labels':   json.dumps(daily_labels),
-        'daily_counts':   json.dumps(daily_counts),
-        'daily_hours':    json.dumps(daily_hours),
-        'status_labels':  json.dumps(status_labels),
-        'status_counts':  json.dumps(status_counts),
-        'proj_labels':    json.dumps(proj_labels),
-        'proj_hours':     json.dumps(proj_hours),
-        'total_all':      total_all,
-        'this_month':     this_month,
-        'last_month':     last_month,
-        'today':          today,
+        'monthly_labels':     _jdumps(monthly_labels),
+        'monthly_counts':     _jdumps(monthly_counts),
+        'monthly_hours':      _jdumps(monthly_hours),
+        'monthly_overdue':    _jdumps(monthly_overdue),
+        'daily_labels':       _jdumps(daily_labels),
+        'daily_counts':       _jdumps(daily_counts),
+        'daily_hours':        _jdumps(daily_hours),
+        'daily_overdue':      _jdumps(daily_overdue),
+        'status_labels':      _jdumps(status_labels),
+        'status_counts':      _jdumps(status_counts),
+        'proj_labels':        _jdumps(proj_labels),
+        'proj_hours':         _jdumps(proj_hours),
+        'overdue_total':      overdue_total,
+        'overdue_proj_labels': overdue_proj_labels,
+        'overdue_proj_counts': overdue_proj_counts,
+        'total_all':          total_all,
+        'this_month':         this_month,
+        'last_month':         last_month,
+        'today':              today,
     })
