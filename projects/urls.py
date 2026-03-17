@@ -13,6 +13,7 @@ urlpatterns = [
     path('tasks/quick-add/', views.quick_add, name='quick_add'),
     path('report/', views.report, name='report'),
     path('analytics/', views.analytics, name='analytics'),
+    path('projects/', views.projects_list, name='projects_list'),
     path('profile/', views.profile, name='profile'),
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('admin-panel/user/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),

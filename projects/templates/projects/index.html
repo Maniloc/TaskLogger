@@ -57,7 +57,11 @@
 
   <!-- LEFT: projects + active tasks -->
   <div>
-    <div class="sidebar-label">проекты</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="sidebar-label" style="margin-bottom:0">проекты</div>
+      <a href="{% url 'projects_list' %}" style="font-size:11px;color:var(--accent2);text-decoration:none">все →</a>
+    </div>
+    <div class="proj-list-scroll">
     {% for project in projects %}
     <a href="{% url 'project_detail' project.pk %}" class="proj-item">
       <div class="proj-dot"></div>
@@ -70,6 +74,7 @@
     {% empty %}
     <div style="font-size:13px;color:var(--text3);padding:10px 4px;line-height:1.6">Нет проектов.<br>Нажмите «+ новый проект».</div>
     {% endfor %}
+    </div>
 
     <!-- Active tasks: grouped by urgency with scroll -->
     {% if active_total %}

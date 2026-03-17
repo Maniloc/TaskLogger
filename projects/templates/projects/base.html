@@ -413,6 +413,15 @@ select option { background: var(--bg3); color: var(--text); }
   text-transform: uppercase; letter-spacing: .6px;
   margin-bottom: 8px; padding: 0 2px;
 }
+.proj-list-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+.proj-list-scroll::-webkit-scrollbar { width: 4px; }
+.proj-list-scroll::-webkit-scrollbar-track { background: transparent; }
+.proj-list-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
 .proj-item {
   padding: 9px 12px; border-radius: 8px;
   border: 1px solid var(--border);
@@ -599,6 +608,7 @@ select option { background: var(--bg3); color: var(--text); }
   <div class="nav-links">
     <a href="{% url 'index' %}" {% if request.resolver_match.url_name == 'index' %}class="active"{% endif %}>дашборд</a>
     <a href="{% url 'analytics' %}" {% if request.resolver_match.url_name == 'analytics' %}class="active"{% endif %}>аналитика</a>
+    <a href="{% url 'projects_list' %}" {% if request.resolver_match.url_name == 'projects_list' %}class="active"{% endif %}>проекты</a>
     <a href="{% url 'report' %}" {% if request.resolver_match.url_name == 'report' %}class="active"{% endif %}>отчёт</a>
     {% if user.is_superuser %}
     <a href="{% url 'admin_panel' %}" {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_user_detail' %}class="active"{% endif %} style="color:var(--amber)">панель</a>
