@@ -142,10 +142,22 @@ def index(request):
         .order_by('-date')[:5]
     )
 
+    # Group active tasks by urgency for sidebar
+    active_grouped = {'overdue': [], 'today': [], 'soon': [], 'upcoming': [], 'other': []}
+    for t in active_tasks:
+        u = t.urgency
+        if u in active_grouped:
+            active_grouped[u].append(t)
+        else:
+            active_grouped['other'].append(t)
+    active_total = sum(len(v) for v in active_grouped.values())
+
     return render(request, 'projects/index.html', {
         'projects': projects,
         'recent_tasks': recent_tasks,
         'done_recent': done_recent,
+        'active_grouped': active_grouped,
+        'active_total': active_total,
         'tasks_count': agg['count'] or 0,
         'tasks_hours': agg['hours'] or Decimal('0'),
         'today': today,

@@ -71,40 +71,91 @@
     <div style="font-size:13px;color:var(--text3);padding:10px 4px;line-height:1.6">Нет проектов.<br>Нажмите «+ новый проект».</div>
     {% endfor %}
 
-    <!-- Active tasks list -->
-    {% if recent_tasks %}
+    <!-- Active tasks: grouped by urgency with scroll -->
+    {% if active_total %}
     <div style="margin-top:1.5rem">
-      <div class="sidebar-label">актуальные задачи</div>
-      {% for task in recent_tasks %}
+      <div class="sidebar-label" style="margin-bottom:8px">
+        актуальные задачи
+        <span style="font-weight:400;color:var(--text3);margin-left:4px">({{ active_total }})</span>
+      </div>
+      <div class="active-tasks-scroll">
 
-      {% with u=task.urgency %}
-      <a href="{% url 'task_edit' task.pk %}"
-         class="active-task-card
-           {% if u == 'overdue' %} urgency-overdue
-           {% elif u == 'today' %} urgency-today
-           {% elif u == 'soon' %} urgency-soon
-           {% elif u == 'upcoming' %} urgency-upcoming
-           {% endif %}">
-        <div style="display:flex;align-items:flex-start;gap:8px">
-          <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;color:var(--text);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ task.task }}</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:4px">{{ task.project.name }}</div>
-            {% if task.due_date %}
-            <div style="font-size:11px;margin-top:3px;font-weight:{% if u == 'overdue' or u == 'today' %}600{% else %}400{% endif %};
-              color:{% if u == 'overdue' %}var(--red){% elif u == 'today' %}var(--amber){% elif u == 'soon' %}var(--amber){% else %}var(--text3){% endif %}">
-              {% if u == 'overdue' %}просрочено {{ task.due_date|date:"d.m" }}
-              {% elif u == 'today' %}срок сегодня
-              {% elif u == 'soon' %}до {{ task.due_date|date:"d.m" }}
-              {% else %}до {{ task.due_date|date:"d.m.Y" }}
-              {% endif %}
+        {% if active_grouped.overdue %}
+        <div class="urgency-group">
+          <div class="urgency-group-header ug-overdue">просрочено <span style="margin-left:auto;opacity:.7">{{ active_grouped.overdue|length }}</span></div>
+          {% for task in active_grouped.overdue %}
+          <a href="{% url 'task_edit' task.pk %}" class="mini-task-link">
+            <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="mini-task-text">{{ task.task }}</div>
+              <div class="mini-task-proj">{{ task.project.name }} · {{ task.due_date|date:"d.m" }}</div>
             </div>
-            {% endif %}
-          </div>
+          </a>
+          {% endfor %}
         </div>
-      </a>
-      {% endwith %}
-      {% endfor %}
+        {% endif %}
+
+        {% if active_grouped.today %}
+        <div class="urgency-group">
+          <div class="urgency-group-header ug-today">сегодня <span style="margin-left:auto;opacity:.7">{{ active_grouped.today|length }}</span></div>
+          {% for task in active_grouped.today %}
+          <a href="{% url 'task_edit' task.pk %}" class="mini-task-link">
+            <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="mini-task-text">{{ task.task }}</div>
+              <div class="mini-task-proj">{{ task.project.name }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if active_grouped.soon %}
+        <div class="urgency-group">
+          <div class="urgency-group-header ug-soon">ближайшие 3 дня <span style="margin-left:auto;opacity:.7">{{ active_grouped.soon|length }}</span></div>
+          {% for task in active_grouped.soon %}
+          <a href="{% url 'task_edit' task.pk %}" class="mini-task-link">
+            <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="mini-task-text">{{ task.task }}</div>
+              <div class="mini-task-proj">{{ task.project.name }} · до {{ task.due_date|date:"d.m" }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if active_grouped.upcoming %}
+        <div class="urgency-group">
+          <div class="urgency-group-header ug-upcoming">на этой неделе <span style="margin-left:auto;opacity:.7">{{ active_grouped.upcoming|length }}</span></div>
+          {% for task in active_grouped.upcoming %}
+          <a href="{% url 'task_edit' task.pk %}" class="mini-task-link">
+            <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="mini-task-text">{{ task.task }}</div>
+              <div class="mini-task-proj">{{ task.project.name }} · до {{ task.due_date|date:"d.m" }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if active_grouped.other %}
+        <div class="urgency-group">
+          <div class="urgency-group-header ug-upcoming">без срока / позже <span style="margin-left:auto;opacity:.7">{{ active_grouped.other|length }}</span></div>
+          {% for task in active_grouped.other %}
+          <a href="{% url 'task_edit' task.pk %}" class="mini-task-link">
+            <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <div class="mini-task-text">{{ task.task }}</div>
+              <div class="mini-task-proj">{{ task.project.name }}{% if task.due_date %} · до {{ task.due_date|date:"d.m.Y" }}{% endif %}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      </div>
     </div>
     {% endif %}
 
