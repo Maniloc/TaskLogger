@@ -68,6 +68,32 @@ def index(request):
         if delta >= 2:
             gap_days = delta
 
+    # ── Dashboard charts ──
+    fourteen_days_ago = today - timedelta(days=13)
+    daily_qs = (
+        Task.objects
+        .filter(project__user=request.user, date__gte=fourteen_days_ago)
+        .annotate(day=TruncDate('date'))
+        .values('day')
+        .annotate(count=Count('id'), hours=Sum('hours'))
+    )
+    daily_map = {row['day'].strftime('%Y-%m-%d'): row for row in daily_qs}
+    chart_days, chart_counts, chart_hours = [], [], []
+    for i in range(14):
+        d = fourteen_days_ago + timedelta(days=i)
+        k = d.strftime('%Y-%m-%d')
+        chart_days.append(d.strftime('%d.%m'))
+        row = daily_map.get(k, {})
+        chart_counts.append(row.get('count', 0))
+        chart_hours.append(float(row.get('hours') or 0))
+
+    # Project distribution by hours this month
+    proj_dist = list(
+        projects.filter(hours_total__gt=0).order_by('-hours_total')[:6]
+    )
+    proj_dist_labels = _jdumps([p.name for p in proj_dist])
+    proj_dist_hours  = _jdumps([float(p.hours_total or 0) for p in proj_dist])
+
     return render(request, 'projects/index.html', {
         'projects': projects,
         'recent_tasks': recent_tasks,
@@ -75,6 +101,11 @@ def index(request):
         'tasks_hours': agg['hours'] or Decimal('0'),
         'today': today,
         'gap_days': gap_days,
+        'chart_days':        _jdumps(chart_days),
+        'chart_counts':      _jdumps(chart_counts),
+        'chart_hours':       _jdumps(chart_hours),
+        'proj_dist_labels':  proj_dist_labels,
+        'proj_dist_hours':   proj_dist_hours,
     })
 
 

@@ -47,14 +47,17 @@
 </div>
 </div>
 
+<!-- Stat cards -->
 <div class="stats-row">
   <div class="stat-card"><div class="stat-val">{{ tasks_count }}</div><div class="stat-lbl">задач в этом месяце</div></div>
   <div class="stat-card"><div class="stat-val">{{ tasks_hours|floatformat:1 }}ч</div><div class="stat-lbl">часов в этом месяце</div></div>
   <div class="stat-card"><div class="stat-val">{{ projects.count }}</div><div class="stat-lbl">проектов</div></div>
 </div>
 
+<!-- Main grid: sidebar + content -->
 <div class="layout">
-  <!-- Sidebar: project list -->
+
+  <!-- LEFT: project list -->
   <div>
     <div class="sidebar-label">проекты</div>
     {% for project in projects %}
@@ -63,19 +66,51 @@
       <div style="flex:1;min-width:0">
         <div class="proj-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ project.name }}</div>
         {% if project.hours_total %}
-        <div style="font-size:11px;color:var(--text3);margin-top:1px">{{ project.hours_total|floatformat:1 }}ч</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">{{ project.hours_total|floatformat:1 }}ч</div>
         {% endif %}
       </div>
       <div class="proj-cnt">{{ project.task_count_ann }}</div>
     </a>
     {% empty %}
-    <div style="font-size:13px;color:var(--text3);padding:10px 4px">нет проектов</div>
+    <div style="font-size:13px;color:var(--text3);padding:10px 4px;line-height:1.6">
+      Нет проектов.<br>Нажмите «+ новый проект».
+    </div>
     {% endfor %}
+
+    {% if projects %}
+    <!-- Mini project distribution chart -->
+    <div style="margin-top:1.25rem">
+      <div class="sidebar-label">часы по проектам</div>
+      <div class="card" style="padding:.875rem 1rem;margin-bottom:0">
+        <div style="position:relative;height:140px">
+          <canvas id="projMiniChart"></canvas>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
-  <!-- Main: recent tasks -->
+  <!-- RIGHT: charts + recent tasks -->
   <div>
-    <div class="sidebar-label" style="margin-bottom:12px">последние задачи этого месяца</div>
+
+    {% if projects %}
+    <!-- Activity chart: last 14 days -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="card-title" style="margin-bottom:0">активность — последние 14 дней</div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm" id="dc-tasks" onclick="setDashMode('tasks')" style="padding:3px 9px;font-size:11px">задачи</button>
+          <button class="btn btn-ghost btn-sm" id="dc-hours" onclick="setDashMode('hours')" style="padding:3px 9px;font-size:11px">часы</button>
+        </div>
+      </div>
+      <div style="position:relative;height:120px">
+        <canvas id="dashActivityChart"></canvas>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent tasks -->
+    <div class="sidebar-label" style="margin-bottom:10px">последние задачи этого месяца</div>
     {% if recent_tasks %}
       {% for task in recent_tasks %}
       <div class="card" style="border-left:3px solid {{ task.status_color }}">
@@ -97,10 +132,143 @@
       <div class="empty">
         <div class="empty-icon">📋</div>
         задач в этом месяце пока нет<br>
-        <span style="font-size:13px;margin-top:6px;display:block">нажмите «+ задача» в верхнем меню</span>
+        <span style="font-size:13px;display:block;margin-top:6px">нажмите «+ задача» в верхнем меню</span>
       </div>
     {% endif %}
+
   </div>
 </div>
+
+{% if projects %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const chartDays   = {{ chart_days|safe }};
+const chartCounts = {{ chart_counts|safe }};
+const chartHours  = {{ chart_hours|safe }};
+const projLabels  = {{ proj_dist_labels|safe }};
+const projHours   = {{ proj_dist_hours|safe }};
+
+function cv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function gc(){
+  return {
+    accent: cv('--accent'), accent2: cv('--accent2'),
+    green: cv('--green'), amber: cv('--amber'),
+    text: cv('--text'), text2: cv('--text2'), text3: cv('--text3'),
+    border: cv('--border'), bg2: cv('--bg2'), bg3: cv('--bg3'),
+    tagBg: cv('--tag-bg'), tagText: cv('--tag-text'),
+  };
+}
+
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+// ── Activity bar chart ──
+let dashMode = 'tasks', dashChart;
+function buildDashActivity(){
+  const c = gc();
+  if(dashChart) dashChart.destroy();
+  const data = dashMode === 'tasks' ? chartCounts : chartHours;
+  dashChart = new Chart(document.getElementById('dashActivityChart'), {
+    type: 'bar',
+    data: {
+      labels: chartDays,
+      datasets: [{
+        data,
+        backgroundColor: ctx => {
+          const v = ctx.parsed.y;
+          if(!v) return c.border;
+          if(v >= 5) return c.green + 'bb';
+          if(v >= 2) return c.accent + 'aa';
+          return c.accent2 + '66';
+        },
+        borderColor: 'transparent',
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: c.bg3, titleColor: c.text, bodyColor: c.text2,
+          borderColor: c.border, borderWidth: 1,
+          callbacks: {
+            label: ctx => dashMode === 'hours'
+              ? ` ${ctx.parsed.y.toFixed(1)}ч`
+              : ` ${ctx.parsed.y} задач`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: c.text3, font: { size: 10 } } },
+        y: { grid: { color: c.border }, ticks: { color: c.text3, font: { size: 10 } }, beginAtZero: true },
+      }
+    }
+  });
+}
+function setDashMode(m){
+  dashMode = m; buildDashActivity();
+  document.getElementById('dc-tasks').style.color = m === 'tasks' ? cv('--text') : '';
+  document.getElementById('dc-hours').style.color = m === 'hours' ? cv('--text') : '';
+}
+
+// ── Project mini doughnut ──
+function buildProjMini(){
+  const c = gc();
+  const el = document.getElementById('projMiniChart');
+  if(!el || !projHours.length) return;
+  // Color palette cycling through accent shades
+  const palette = [
+    c.accent, c.green, c.amber,
+    c.accent2, '#c084fc', '#fb7185'
+  ];
+  new Chart(el, {
+    type: 'doughnut',
+    data: {
+      labels: projLabels,
+      datasets: [{
+        data: projHours,
+        backgroundColor: palette.slice(0, projLabels.length).map(col => col + 'cc'),
+        borderColor: c.bg2,
+        borderWidth: 2,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '55%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            color: c.text2, font: { size: 10 },
+            boxWidth: 8, boxHeight: 8,
+            padding: 6,
+          }
+        },
+        tooltip: {
+          backgroundColor: c.bg3, titleColor: c.text, bodyColor: c.text2,
+          borderColor: c.border, borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.parsed.toFixed(1)}ч` }
+        }
+      }
+    }
+  });
+}
+
+buildDashActivity();
+buildProjMini();
+
+// Re-render on theme switch
+window.__rebuildCharts = (window.__rebuildCharts ? window.__rebuildCharts : function(){});
+const _prev = window.__rebuildCharts;
+window.__rebuildCharts = function(){
+  _prev();
+  buildDashActivity();
+  const el = document.getElementById('projMiniChart');
+  if(el){ Chart.getChart(el)?.destroy(); buildProjMini(); }
+};
+</script>
+{% endif %}
 
 {% endblock %}
