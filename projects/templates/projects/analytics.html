@@ -1,0 +1,363 @@
+{% extends 'projects/base.html' %}
+{% block title %}Аналитика — TaskTracker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">аналитика</div>
+    <div class="page-sub">{{ today|date:"F Y" }}</div>
+  </div>
+</div>
+
+<!-- Summary stats -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.75rem">
+  <div class="stat-card">
+    <div class="stat-val">{{ total_all.count|default:0 }}</div>
+    <div class="stat-lbl">всего задач</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ total_all.hours|default:0|floatformat:1 }}ч</div>
+    <div class="stat-lbl">всего часов</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">
+      {{ this_month.count|default:0 }}
+      {% if last_month.count and this_month.count %}
+        {% if this_month.count > last_month.count %}
+          <span style="font-size:13px;color:var(--green);font-weight:400">↑</span>
+        {% elif this_month.count < last_month.count %}
+          <span style="font-size:13px;color:var(--red);font-weight:400">↓</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    <div class="stat-lbl">задач в этом месяце</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">
+      {{ this_month.hours|default:0|floatformat:1 }}ч
+      {% if last_month.hours and this_month.hours %}
+        {% if this_month.hours > last_month.hours %}
+          <span style="font-size:13px;color:var(--green);font-weight:400">↑</span>
+        {% elif this_month.hours < last_month.hours %}
+          <span style="font-size:13px;color:var(--red);font-weight:400">↓</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    <div class="stat-lbl">часов в этом месяце</div>
+  </div>
+</div>
+
+<!-- Row 1: Monthly dynamics (full width) -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <div class="card-title" style="margin-bottom:0">динамика по месяцам — последние 12 месяцев</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" id="m-tasks-btn" onclick="setMonthlyMode('tasks')">задачи</button>
+      <button class="btn btn-ghost btn-sm" id="m-hours-btn" onclick="setMonthlyMode('hours')">часы</button>
+    </div>
+  </div>
+  <div style="position:relative;height:220px">
+    <canvas id="monthlyChart"></canvas>
+  </div>
+</div>
+
+<!-- Row 2: Daily activity (full width) -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <div class="card-title" style="margin-bottom:0">активность по дням — последние 30 дней</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" id="d-tasks-btn" onclick="setDailyMode('tasks')">задачи</button>
+      <button class="btn btn-ghost btn-sm" id="d-hours-btn" onclick="setDailyMode('hours')">часы</button>
+    </div>
+  </div>
+  <div style="position:relative;height:180px">
+    <canvas id="dailyChart"></canvas>
+  </div>
+</div>
+
+<!-- Row 3: Status donut + Projects bar side by side -->
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:1.25rem;margin-bottom:1.25rem">
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">статусы задач</div>
+    <div style="position:relative;height:200px;display:flex;align-items:center;justify-content:center">
+      <canvas id="statusChart"></canvas>
+    </div>
+    <div id="status-legend" style="margin-top:10px;display:flex;flex-direction:column;gap:5px"></div>
+  </div>
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">топ проектов по часам</div>
+    <div style="position:relative;height:200px">
+      <canvas id="projectsChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const monthlyLabels = {{ monthly_labels|safe }};
+const monthlyCounts = {{ monthly_counts|safe }};
+const monthlyHours  = {{ monthly_hours|safe }};
+const dailyLabels   = {{ daily_labels|safe }};
+const dailyCounts   = {{ daily_counts|safe }};
+const dailyHours    = {{ daily_hours|safe }};
+const statusLabels  = {{ status_labels|safe }};
+const statusCounts  = {{ status_counts|safe }};
+const projLabels    = {{ proj_labels|safe }};
+const projHours     = {{ proj_hours|safe }};
+
+// Read CSS variables for theme-aware colors
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function getColors() {
+  return {
+    accent:  cssVar('--accent'),
+    accent2: cssVar('--accent2'),
+    green:   cssVar('--green'),
+    amber:   cssVar('--amber'),
+    red:     cssVar('--red'),
+    text:    cssVar('--text'),
+    text2:   cssVar('--text2'),
+    text3:   cssVar('--text3'),
+    border:  cssVar('--border'),
+    bg2:     cssVar('--bg2'),
+    bg3:     cssVar('--bg3'),
+  };
+}
+
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+function makeGridOpts() {
+  const c = getColors();
+  return {
+    color: c.border,
+    drawBorder: false,
+  };
+}
+function makeTickOpts() {
+  const c = getColors();
+  return { color: c.text3, font: { size: 11 } };
+}
+
+// ── Monthly bar chart ──
+let monthlyMode = 'tasks';
+let monthlyChart;
+
+function buildMonthly() {
+  const c = getColors();
+  if (monthlyChart) monthlyChart.destroy();
+  const data = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
+  const label = monthlyMode === 'tasks' ? 'Задачи' : 'Часы';
+  monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: monthlyLabels,
+      datasets: [{
+        label,
+        data,
+        backgroundColor: c.accent + '99',
+        borderColor: c.accent,
+        borderWidth: 1,
+        borderRadius: 4,
+        hoverBackgroundColor: c.accent,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: c.bg3,
+          titleColor: c.text,
+          bodyColor: c.text2,
+          borderColor: c.border,
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => monthlyMode === 'hours'
+              ? ` ${ctx.parsed.y.toFixed(1)}ч`
+              : ` ${ctx.parsed.y} задач`,
+          }
+        }
+      },
+      scales: {
+        x: { grid: makeGridOpts(), ticks: { ...makeTickOpts(), maxRotation: 45 } },
+        y: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
+      }
+    }
+  });
+}
+
+function setMonthlyMode(mode) {
+  monthlyMode = mode;
+  buildMonthly();
+  document.getElementById('m-tasks-btn').style.color = mode === 'tasks' ? cssVar('--text') : '';
+  document.getElementById('m-hours-btn').style.color = mode === 'hours' ? cssVar('--text') : '';
+}
+
+// ── Daily activity chart ──
+let dailyMode = 'tasks';
+let dailyChart;
+
+function buildDaily() {
+  const c = getColors();
+  if (dailyChart) dailyChart.destroy();
+  const data = dailyMode === 'tasks' ? dailyCounts : dailyHours;
+  const label = dailyMode === 'tasks' ? 'Задачи' : 'Часы';
+  dailyChart = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    data: {
+      labels: dailyLabels,
+      datasets: [{
+        label,
+        data,
+        backgroundColor: ctx => {
+          const val = ctx.parsed.y;
+          if (val === 0) return c.border;
+          if (val >= 5) return c.green + 'cc';
+          if (val >= 3) return c.accent + 'cc';
+          return c.accent2 + '88';
+        },
+        borderColor: 'transparent',
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: c.bg3,
+          titleColor: c.text,
+          bodyColor: c.text2,
+          borderColor: c.border,
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => dailyMode === 'hours'
+              ? ` ${ctx.parsed.y.toFixed(1)}ч`
+              : ` ${ctx.parsed.y} задач`,
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { ...makeTickOpts(), maxTicksLimit: 15 } },
+        y: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
+      }
+    }
+  });
+}
+
+function setDailyMode(mode) {
+  dailyMode = mode;
+  buildDaily();
+  document.getElementById('d-tasks-btn').style.color = mode === 'tasks' ? cssVar('--text') : '';
+  document.getElementById('d-hours-btn').style.color = mode === 'hours' ? cssVar('--text') : '';
+}
+
+// ── Status donut ──
+function buildStatus() {
+  const c = getColors();
+  const colors = [c.green, c.amber, c.text3, c.red];
+  new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: statusLabels,
+      datasets: [{
+        data: statusCounts,
+        backgroundColor: colors.map(col => col + 'cc'),
+        borderColor: c.bg2,
+        borderWidth: 3,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: c.bg3,
+          titleColor: c.text,
+          bodyColor: c.text2,
+          borderColor: c.border,
+          borderWidth: 1,
+        }
+      }
+    }
+  });
+
+  // Custom legend
+  const legend = document.getElementById('status-legend');
+  legend.innerHTML = statusLabels.map((lbl, i) => `
+    <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:${c.text2}">
+      <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+      <span style="flex:1">${lbl}</span>
+      <span style="font-weight:500;color:${c.text}">${statusCounts[i]}</span>
+    </div>`).join('');
+}
+
+// ── Projects horizontal bar ──
+function buildProjects() {
+  const c = getColors();
+  new Chart(document.getElementById('projectsChart'), {
+    type: 'bar',
+    data: {
+      labels: projLabels,
+      datasets: [{
+        label: 'Часы',
+        data: projHours,
+        backgroundColor: c.amber + '99',
+        borderColor: c.amber,
+        borderWidth: 1,
+        borderRadius: 4,
+        hoverBackgroundColor: c.amber,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: c.bg3,
+          titleColor: c.text,
+          bodyColor: c.text2,
+          borderColor: c.border,
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}ч` }
+        }
+      },
+      scales: {
+        x: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
+        y: { grid: { display: false }, ticks: { ...makeTickOpts(), font: { size: 12 } } },
+      }
+    }
+  });
+}
+
+// Init all
+buildMonthly();
+buildDaily();
+if (statusCounts.length) buildStatus();
+if (projHours.length)    buildProjects();
+
+// Re-render charts on theme change so colors update
+const origSetTheme = window.setTheme;
+window.setTheme = function(t) {
+  origSetTheme(t);
+  setTimeout(() => {
+    buildMonthly();
+    buildDaily();
+    const sc = document.getElementById('statusChart');
+    const pc = document.getElementById('projectsChart');
+    if (sc) { Chart.getChart(sc)?.destroy(); if (statusCounts.length) buildStatus(); }
+    if (pc) { Chart.getChart(pc)?.destroy(); if (projHours.length)    buildProjects(); }
+  }, 50);
+};
+</script>
+
+{% endblock %}

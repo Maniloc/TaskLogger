@@ -1,5 +1,9 @@
+import json
 import logging
 from functools import wraps
+from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -7,12 +11,12 @@ from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Count
+from django.db.models.functions import TruncMonth, TruncDate
 from django.http import HttpResponse, HttpResponseForbidden
 from django.conf import settings
-from datetime import date
-from decimal import Decimal, InvalidOperation
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
+
 from .models import Project, Task
 
 logger = logging.getLogger(__name__)
@@ -478,4 +482,137 @@ def admin_user_detail(request, user_id):
         'recent_tasks': recent_tasks,
         'tasks_month': tasks_month,
         'total': total,
+    })
+
+
+# ── Analytics ─────────────────────────────────────────────
+
+
+@login_required
+def analytics(request):
+    today = date.today()
+
+    # ── 1. Monthly dynamics — last 12 months ──
+    twelve_months_ago = (today.replace(day=1) - timedelta(days=335)).replace(day=1)
+
+    monthly_qs = (
+        Task.objects
+        .filter(project__user=request.user, date__gte=twelve_months_ago)
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(count=Count('id'), hours=Sum('hours'))
+        .order_by('month')
+    )
+
+    # Build full 12-month series (fill gaps with 0)
+    months_map = {}
+    for row in monthly_qs:
+        key = row['month'].strftime('%Y-%m')
+        months_map[key] = {
+            'count': row['count'],
+            'hours': float(row['hours'] or 0),
+        }
+
+    monthly_labels = []
+    monthly_counts = []
+    monthly_hours = []
+    cursor = twelve_months_ago
+    while cursor <= today.replace(day=1):
+        key = cursor.strftime('%Y-%m')
+        label = cursor.strftime('%b %Y')
+        monthly_labels.append(label)
+        monthly_counts.append(months_map.get(key, {}).get('count', 0))
+        monthly_hours.append(round(months_map.get(key, {}).get('hours', 0), 1))
+        # next month
+        if cursor.month == 12:
+            cursor = cursor.replace(year=cursor.year + 1, month=1)
+        else:
+            cursor = cursor.replace(month=cursor.month + 1)
+
+    # ── 2. Daily activity — last 30 days ──
+    thirty_days_ago = today - timedelta(days=29)
+
+    daily_qs = (
+        Task.objects
+        .filter(project__user=request.user, date__gte=thirty_days_ago)
+        .annotate(day=TruncDate('date'))
+        .values('day')
+        .annotate(count=Count('id'), hours=Sum('hours'))
+        .order_by('day')
+    )
+
+    daily_map = {}
+    for row in daily_qs:
+        key = row['day'].strftime('%Y-%m-%d')
+        daily_map[key] = {
+            'count': row['count'],
+            'hours': float(row['hours'] or 0),
+        }
+
+    daily_labels = []
+    daily_counts = []
+    daily_hours = []
+    for i in range(30):
+        d = thirty_days_ago + timedelta(days=i)
+        key = d.strftime('%Y-%m-%d')
+        daily_labels.append(d.strftime('%d.%m'))
+        daily_counts.append(daily_map.get(key, {}).get('count', 0))
+        daily_hours.append(round(daily_map.get(key, {}).get('hours', 0), 1))
+
+    # ── 3. Status breakdown (all time) ──
+    status_qs = (
+        Task.objects
+        .filter(project__user=request.user)
+        .values('status')
+        .annotate(count=Count('id'))
+    )
+    status_map_labels = dict(Task.STATUS_CHOICES)
+    status_labels = []
+    status_counts = []
+    for row in status_qs:
+        status_labels.append(status_map_labels.get(row['status'], row['status']))
+        status_counts.append(row['count'])
+
+    # ── 4. Top projects by hours ──
+    top_projects_qs = (
+        Project.objects
+        .filter(user=request.user)
+        .annotate(hours_total=Sum('tasks__hours'), task_count=Count('tasks'))
+        .filter(hours_total__gt=0)
+        .order_by('-hours_total')[:8]
+    )
+    proj_labels = [p.name for p in top_projects_qs]
+    proj_hours = [float(p.hours_total or 0) for p in top_projects_qs]
+
+    # ── Summary stats ──
+    total_all = Task.objects.filter(project__user=request.user).aggregate(
+        count=Count('id'), hours=Sum('hours')
+    )
+    this_month = Task.objects.filter(
+        project__user=request.user,
+        date__gte=today.replace(day=1)
+    ).aggregate(count=Count('id'), hours=Sum('hours'))
+    last_month_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    last_month_end = today.replace(day=1) - timedelta(days=1)
+    last_month = Task.objects.filter(
+        project__user=request.user,
+        date__gte=last_month_start,
+        date__lte=last_month_end,
+    ).aggregate(count=Count('id'), hours=Sum('hours'))
+
+    return render(request, 'projects/analytics.html', {
+        'monthly_labels': json.dumps(monthly_labels),
+        'monthly_counts': json.dumps(monthly_counts),
+        'monthly_hours':  json.dumps(monthly_hours),
+        'daily_labels':   json.dumps(daily_labels),
+        'daily_counts':   json.dumps(daily_counts),
+        'daily_hours':    json.dumps(daily_hours),
+        'status_labels':  json.dumps(status_labels),
+        'status_counts':  json.dumps(status_counts),
+        'proj_labels':    json.dumps(proj_labels),
+        'proj_hours':     json.dumps(proj_hours),
+        'total_all':      total_all,
+        'this_month':     this_month,
+        'last_month':     last_month,
+        'today':          today,
     })

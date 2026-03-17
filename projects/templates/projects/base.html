@@ -328,6 +328,7 @@ select option { background: var(--bg3); color: var(--text); }
   <div class="nav-brand">tt<em>/</em></div>
   <div class="nav-links">
     <a href="{% url 'index' %}" {% if request.resolver_match.url_name == 'index' %}class="active"{% endif %}>дашборд</a>
+    <a href="{% url 'analytics' %}" {% if request.resolver_match.url_name == 'analytics' %}class="active"{% endif %}>аналитика</a>
     <a href="{% url 'report' %}" {% if request.resolver_match.url_name == 'report' %}class="active"{% endif %}>отчёт</a>
     {% if user.is_superuser %}
     <a href="{% url 'admin_panel' %}" {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_user_detail' %}class="active"{% endif %} style="color:#e8a030">адм</a>
