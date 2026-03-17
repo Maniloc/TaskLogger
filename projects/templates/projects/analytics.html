@@ -9,8 +9,17 @@
   </div>
 </div>
 
-<!-- Summary stats -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.75rem">
+{% if total_all.count == 0 %}
+<div class="no-data-notice">
+  <strong>Нет данных для отображения</strong>
+  Добавьте первые задачи — и здесь появятся графики активности, статистика по проектам и динамика по месяцам.
+  <div style="margin-top:12px">
+    <button class="btn btn-primary btn-sm" onclick="toggleQuick()">+ добавить задачу</button>
+  </div>
+</div>
+{% else %}
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.75rem">
   <div class="stat-card">
     <div class="stat-val">{{ total_all.count|default:0 }}</div>
     <div class="stat-lbl">всего задач</div>
@@ -22,11 +31,9 @@
   <div class="stat-card">
     <div class="stat-val">
       {{ this_month.count|default:0 }}
-      {% if last_month.count and this_month.count %}
-        {% if this_month.count > last_month.count %}
-          <span style="font-size:13px;color:var(--green);font-weight:400">↑</span>
-        {% elif this_month.count < last_month.count %}
-          <span style="font-size:13px;color:var(--red);font-weight:400">↓</span>
+      {% if last_month.count %}
+        {% if this_month.count > last_month.count %}<span style="font-size:14px;color:var(--green);font-weight:500">↑</span>
+        {% elif this_month.count < last_month.count %}<span style="font-size:14px;color:var(--red);font-weight:500">↓</span>
         {% endif %}
       {% endif %}
     </div>
@@ -35,11 +42,9 @@
   <div class="stat-card">
     <div class="stat-val">
       {{ this_month.hours|default:0|floatformat:1 }}ч
-      {% if last_month.hours and this_month.hours %}
-        {% if this_month.hours > last_month.hours %}
-          <span style="font-size:13px;color:var(--green);font-weight:400">↑</span>
-        {% elif this_month.hours < last_month.hours %}
-          <span style="font-size:13px;color:var(--red);font-weight:400">↓</span>
+      {% if last_month.hours %}
+        {% if this_month.hours > last_month.hours %}<span style="font-size:14px;color:var(--green);font-weight:500">↑</span>
+        {% elif this_month.hours < last_month.hours %}<span style="font-size:14px;color:var(--red);font-weight:500">↓</span>
         {% endif %}
       {% endif %}
     </div>
@@ -47,50 +52,54 @@
   </div>
 </div>
 
-<!-- Row 1: Monthly dynamics (full width) -->
+<!-- Monthly dynamics -->
 <div class="card" style="margin-bottom:1.25rem">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-    <div class="card-title" style="margin-bottom:0">динамика по месяцам — последние 12 месяцев</div>
-    <div style="display:flex;gap:8px">
+    <div class="card-title" style="margin-bottom:0">динамика по месяцам — 12 мес.</div>
+    <div style="display:flex;gap:6px">
       <button class="btn btn-ghost btn-sm" id="m-tasks-btn" onclick="setMonthlyMode('tasks')">задачи</button>
       <button class="btn btn-ghost btn-sm" id="m-hours-btn" onclick="setMonthlyMode('hours')">часы</button>
     </div>
   </div>
-  <div style="position:relative;height:220px">
-    <canvas id="monthlyChart"></canvas>
-  </div>
+  <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
 </div>
 
-<!-- Row 2: Daily activity (full width) -->
+<!-- Daily activity -->
 <div class="card" style="margin-bottom:1.25rem">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-    <div class="card-title" style="margin-bottom:0">активность по дням — последние 30 дней</div>
-    <div style="display:flex;gap:8px">
+    <div class="card-title" style="margin-bottom:0">активность по дням — 30 дней</div>
+    <div style="display:flex;gap:6px">
       <button class="btn btn-ghost btn-sm" id="d-tasks-btn" onclick="setDailyMode('tasks')">задачи</button>
       <button class="btn btn-ghost btn-sm" id="d-hours-btn" onclick="setDailyMode('hours')">часы</button>
     </div>
   </div>
-  <div style="position:relative;height:180px">
-    <canvas id="dailyChart"></canvas>
-  </div>
+  <div style="position:relative;height:180px"><canvas id="dailyChart"></canvas></div>
 </div>
 
-<!-- Row 3: Status donut + Projects bar side by side -->
+<!-- Status + Projects -->
 <div style="display:grid;grid-template-columns:1fr 2fr;gap:1.25rem;margin-bottom:1.25rem">
   <div class="card" style="margin-bottom:0">
     <div class="card-title">статусы задач</div>
+    {% if status_counts %}
     <div style="position:relative;height:200px;display:flex;align-items:center;justify-content:center">
       <canvas id="statusChart"></canvas>
     </div>
-    <div id="status-legend" style="margin-top:10px;display:flex;flex-direction:column;gap:5px"></div>
+    <div id="status-legend" style="margin-top:12px;display:flex;flex-direction:column;gap:7px"></div>
+    {% else %}
+    <div class="no-data-notice" style="padding:1.5rem;margin-top:0">нет данных</div>
+    {% endif %}
   </div>
   <div class="card" style="margin-bottom:0">
     <div class="card-title">топ проектов по часам</div>
-    <div style="position:relative;height:200px">
-      <canvas id="projectsChart"></canvas>
-    </div>
+    {% if proj_hours %}
+    <div style="position:relative;height:200px"><canvas id="projectsChart"></canvas></div>
+    {% else %}
+    <div class="no-data-notice" style="padding:1.5rem;margin-top:0">нет данных по часам</div>
+    {% endif %}
   </div>
 </div>
+
+{% endif %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
@@ -105,160 +114,116 @@ const statusCounts  = {{ status_counts|safe }};
 const projLabels    = {{ proj_labels|safe }};
 const projHours     = {{ proj_hours|safe }};
 
-// Read CSS variables for theme-aware colors
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-function getColors() {
+function cv(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function gc() {
   return {
-    accent:  cssVar('--accent'),
-    accent2: cssVar('--accent2'),
-    green:   cssVar('--green'),
-    amber:   cssVar('--amber'),
-    red:     cssVar('--red'),
-    text:    cssVar('--text'),
-    text2:   cssVar('--text2'),
-    text3:   cssVar('--text3'),
-    border:  cssVar('--border'),
-    bg2:     cssVar('--bg2'),
-    bg3:     cssVar('--bg3'),
+    accent: cv('--accent'), accent2: cv('--accent2'),
+    green: cv('--green'), amber: cv('--amber'), red: cv('--red'),
+    text: cv('--text'), text2: cv('--text2'), text3: cv('--text3'),
+    border: cv('--border'), bg2: cv('--bg2'), bg3: cv('--bg3'),
+    tagBg: cv('--tag-bg'),
   };
 }
 
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 12;
 
-function makeGridOpts() {
-  const c = getColors();
+function gridOpts(c) { return { color: c.border, drawBorder: false }; }
+function tickOpts(c) { return { color: c.text3, font: { size: 11 } }; }
+function tooltipOpts(c) {
   return {
-    color: c.border,
-    drawBorder: false,
+    backgroundColor: c.bg3, titleColor: c.text, bodyColor: c.text2,
+    borderColor: c.border, borderWidth: 1,
   };
 }
-function makeTickOpts() {
-  const c = getColors();
-  return { color: c.text3, font: { size: 11 } };
-}
 
-// ── Monthly bar chart ──
-let monthlyMode = 'tasks';
-let monthlyChart;
-
+// ── Monthly ──
+let monthlyMode = 'tasks', monthlyChart;
 function buildMonthly() {
-  const c = getColors();
+  const c = gc();
   if (monthlyChart) monthlyChart.destroy();
   const data = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
-  const label = monthlyMode === 'tasks' ? 'Задачи' : 'Часы';
   monthlyChart = new Chart(document.getElementById('monthlyChart'), {
     type: 'bar',
     data: {
       labels: monthlyLabels,
       datasets: [{
-        label,
+        label: monthlyMode === 'tasks' ? 'Задачи' : 'Часы',
         data,
-        backgroundColor: c.accent + '99',
+        backgroundColor: c.accent + '88',
         borderColor: c.accent,
-        borderWidth: 1,
-        borderRadius: 4,
+        borderWidth: 1.5, borderRadius: 5,
         hoverBackgroundColor: c.accent,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          backgroundColor: c.bg3,
-          titleColor: c.text,
-          bodyColor: c.text2,
-          borderColor: c.border,
-          borderWidth: 1,
-          callbacks: {
-            label: ctx => monthlyMode === 'hours'
-              ? ` ${ctx.parsed.y.toFixed(1)}ч`
-              : ` ${ctx.parsed.y} задач`,
-          }
-        }
+        tooltip: { ...tooltipOpts(c), callbacks: {
+          label: ctx => monthlyMode === 'hours' ? ` ${ctx.parsed.y.toFixed(1)}ч` : ` ${ctx.parsed.y} задач`
+        }}
       },
       scales: {
-        x: { grid: makeGridOpts(), ticks: { ...makeTickOpts(), maxRotation: 45 } },
-        y: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
+        x: { grid: gridOpts(c), ticks: { ...tickOpts(c), maxRotation: 40 } },
+        y: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
       }
     }
   });
 }
-
-function setMonthlyMode(mode) {
-  monthlyMode = mode;
-  buildMonthly();
-  document.getElementById('m-tasks-btn').style.color = mode === 'tasks' ? cssVar('--text') : '';
-  document.getElementById('m-hours-btn').style.color = mode === 'hours' ? cssVar('--text') : '';
+function setMonthlyMode(m) {
+  monthlyMode = m; buildMonthly();
+  document.getElementById('m-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
+  document.getElementById('m-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
 }
 
-// ── Daily activity chart ──
-let dailyMode = 'tasks';
-let dailyChart;
-
+// ── Daily ──
+let dailyMode = 'tasks', dailyChart;
 function buildDaily() {
-  const c = getColors();
+  const c = gc();
   if (dailyChart) dailyChart.destroy();
   const data = dailyMode === 'tasks' ? dailyCounts : dailyHours;
-  const label = dailyMode === 'tasks' ? 'Задачи' : 'Часы';
   dailyChart = new Chart(document.getElementById('dailyChart'), {
     type: 'bar',
     data: {
       labels: dailyLabels,
       datasets: [{
-        label,
+        label: dailyMode === 'tasks' ? 'Задачи' : 'Часы',
         data,
         backgroundColor: ctx => {
-          const val = ctx.parsed.y;
-          if (val === 0) return c.border;
-          if (val >= 5) return c.green + 'cc';
-          if (val >= 3) return c.accent + 'cc';
-          return c.accent2 + '88';
+          const v = ctx.parsed.y;
+          if (!v) return c.border;
+          if (v >= 5) return c.green + 'cc';
+          if (v >= 3) return c.accent + 'cc';
+          return c.accent2 + '77';
         },
-        borderColor: 'transparent',
-        borderRadius: 3,
+        borderColor: 'transparent', borderRadius: 3,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          backgroundColor: c.bg3,
-          titleColor: c.text,
-          bodyColor: c.text2,
-          borderColor: c.border,
-          borderWidth: 1,
-          callbacks: {
-            label: ctx => dailyMode === 'hours'
-              ? ` ${ctx.parsed.y.toFixed(1)}ч`
-              : ` ${ctx.parsed.y} задач`,
-          }
-        }
+        tooltip: { ...tooltipOpts(c), callbacks: {
+          label: ctx => dailyMode === 'hours' ? ` ${ctx.parsed.y.toFixed(1)}ч` : ` ${ctx.parsed.y} задач`
+        }}
       },
       scales: {
-        x: { grid: { display: false }, ticks: { ...makeTickOpts(), maxTicksLimit: 15 } },
-        y: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
+        x: { grid: { display: false }, ticks: { ...tickOpts(c), maxTicksLimit: 15 } },
+        y: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
       }
     }
   });
 }
-
-function setDailyMode(mode) {
-  dailyMode = mode;
-  buildDaily();
-  document.getElementById('d-tasks-btn').style.color = mode === 'tasks' ? cssVar('--text') : '';
-  document.getElementById('d-hours-btn').style.color = mode === 'hours' ? cssVar('--text') : '';
+function setDailyMode(m) {
+  dailyMode = m; buildDaily();
+  document.getElementById('d-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
+  document.getElementById('d-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
 }
 
 // ── Status donut ──
 function buildStatus() {
-  const c = getColors();
+  const c = gc();
   const colors = [c.green, c.amber, c.text3, c.red];
   new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
@@ -267,96 +232,66 @@ function buildStatus() {
       datasets: [{
         data: statusCounts,
         backgroundColor: colors.map(col => col + 'cc'),
-        borderColor: c.bg2,
-        borderWidth: 3,
-        hoverOffset: 6,
+        borderColor: c.bg2, borderWidth: 3, hoverOffset: 6,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '62%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: c.bg3,
-          titleColor: c.text,
-          bodyColor: c.text2,
-          borderColor: c.border,
-          borderWidth: 1,
-        }
-      }
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { display: false }, tooltip: tooltipOpts(c) }
     }
   });
-
-  // Custom legend
   const legend = document.getElementById('status-legend');
-  legend.innerHTML = statusLabels.map((lbl, i) => `
-    <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:${c.text2}">
-      <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
-      <span style="flex:1">${lbl}</span>
-      <span style="font-weight:500;color:${c.text}">${statusCounts[i]}</span>
-    </div>`).join('');
+  if (legend) {
+    legend.innerHTML = statusLabels.map((lbl, i) => `
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:${c.text2}">
+        <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+        <span style="flex:1">${lbl}</span>
+        <span style="font-weight:600;color:${c.text}">${statusCounts[i]}</span>
+      </div>`).join('');
+  }
 }
 
 // ── Projects horizontal bar ──
 function buildProjects() {
-  const c = getColors();
+  const c = gc();
   new Chart(document.getElementById('projectsChart'), {
     type: 'bar',
     data: {
       labels: projLabels,
       datasets: [{
-        label: 'Часы',
-        data: projHours,
-        backgroundColor: c.amber + '99',
-        borderColor: c.amber,
-        borderWidth: 1,
-        borderRadius: 4,
+        label: 'Часы', data: projHours,
+        backgroundColor: c.amber + '88', borderColor: c.amber,
+        borderWidth: 1.5, borderRadius: 4,
         hoverBackgroundColor: c.amber,
       }]
     },
     options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          backgroundColor: c.bg3,
-          titleColor: c.text,
-          bodyColor: c.text2,
-          borderColor: c.border,
-          borderWidth: 1,
-          callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}ч` }
-        }
+        tooltip: { ...tooltipOpts(c), callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}ч` } }
       },
       scales: {
-        x: { grid: makeGridOpts(), ticks: makeTickOpts(), beginAtZero: true },
-        y: { grid: { display: false }, ticks: { ...makeTickOpts(), font: { size: 12 } } },
+        x: { grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
+        y: { grid: { display: false }, ticks: { ...tickOpts(c), font: { size: 12 } } },
       }
     }
   });
 }
 
-// Init all
+// Init
 buildMonthly();
 buildDaily();
-if (statusCounts.length) buildStatus();
-if (projHours.length)    buildProjects();
+if (document.getElementById('statusChart')  && statusCounts.length) buildStatus();
+if (document.getElementById('projectsChart') && projHours.length)   buildProjects();
 
-// Re-render charts on theme change so colors update
-const origSetTheme = window.setTheme;
-window.setTheme = function(t) {
-  origSetTheme(t);
-  setTimeout(() => {
-    buildMonthly();
-    buildDaily();
-    const sc = document.getElementById('statusChart');
-    const pc = document.getElementById('projectsChart');
-    if (sc) { Chart.getChart(sc)?.destroy(); if (statusCounts.length) buildStatus(); }
-    if (pc) { Chart.getChart(pc)?.destroy(); if (projHours.length)    buildProjects(); }
-  }, 50);
+// Rebuild on theme change
+window.__rebuildCharts = function() {
+  buildMonthly(); buildDaily();
+  const sc = document.getElementById('statusChart');
+  const pc = document.getElementById('projectsChart');
+  if (sc) { Chart.getChart(sc)?.destroy(); if (statusCounts.length) buildStatus(); }
+  if (pc) { Chart.getChart(pc)?.destroy(); if (projHours.length) buildProjects(); }
 };
 </script>
 

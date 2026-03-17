@@ -42,12 +42,23 @@ def index(request):
         date__gte=month_start,
     ).aggregate(count=Count('id'), hours=Sum('hours'))
 
+    last_date = (
+        Task.objects.filter(project__user=request.user)
+        .order_by('-date').values_list('date', flat=True).first()
+    )
+    gap_days = None
+    if last_date:
+        delta = (today - last_date).days
+        if delta >= 2:
+            gap_days = delta
+
     return render(request, 'projects/index.html', {
         'projects': projects,
         'recent_tasks': recent_tasks,
         'tasks_count': agg['count'] or 0,
         'tasks_hours': agg['hours'] or Decimal('0'),
         'today': today,
+        'gap_days': gap_days,
     })
 
 

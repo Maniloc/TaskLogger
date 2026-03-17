@@ -14,6 +14,14 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 ALLOWED_HOSTS = env('ALLOWED_HOSTS')
 
+# Validate SECRET_KEY in production
+if not DEBUG:
+    if len(SECRET_KEY) < 50 or 'change-this' in SECRET_KEY or 'dev-only' in SECRET_KEY:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(
+            'SECRET_KEY слишком короткий или содержит дефолтное значение. Задайте надёжный ключ в .env'
+        )
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
