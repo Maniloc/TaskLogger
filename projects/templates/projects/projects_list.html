@@ -5,9 +5,14 @@
 <div class="page-header">
   <div>
     <div class="page-title">мои проекты</div>
-    <div class="page-sub">{{ total }} проект{% if total == 1 %}{% elif total|divisibleby:1 and total < 5 %}а{% else %}ов{% endif %}</div>
+    <div class="page-sub">{{ total }} проектов</div>
   </div>
-  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('npf').style.display=document.getElementById('npf').style.display==='none'?'block':'none'">+ новый проект</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <!-- View toggle -->
+    <button class="view-btn active" id="btn-list" onclick="setView('list')" title="Список">☰ список</button>
+    <button class="view-btn" id="btn-grid" onclick="setView('grid')" title="Сетка">⊞ сетка</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('npf').style.display=document.getElementById('npf').style.display==='none'?'block':'none'">+ новый проект</button>
+  </div>
 </div>
 
 <div id="npf" style="display:none;margin-bottom:1.25rem">
@@ -32,7 +37,7 @@
 <div class="filter-bar" style="margin-bottom:1.25rem">
   <form method="get" style="display:contents">
     <input type="text" name="search" placeholder="поиск по проектам..." value="{{ search }}" style="flex:2;min-width:160px">
-    <select name="sort" style="width:auto">
+    <select name="sort">
       <option value="updated"{% if sort == 'updated' %} selected{% endif %}>по дате создания</option>
       <option value="name"{% if sort == 'name' %} selected{% endif %}>по названию</option>
       <option value="tasks"{% if sort == 'tasks' %} selected{% endif %}>по числу задач</option>
@@ -45,114 +50,126 @@
 </div>
 
 {% if projects %}
-  {% for project in projects %}
-  <div class="card" style="margin-bottom:14px;border-left:4px solid {{ project.accent_color }};padding-left:1.125rem">
 
-    <!-- Project header -->
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
-          <a href="{% url 'project_detail' project.pk %}" style="font-size:17px;font-weight:600;color:var(--text);text-decoration:none;transition:color .12s" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--text)'">{{ project.name }}</a>
-          {% if project.overdue_count %}
-          <span class="badge" style="background:rgba(248,113,113,.15);color:var(--red);font-weight:600">{{ project.overdue_count }} просрочено</span>
-          {% endif %}
-        </div>
-        {% if project.initiator %}
-        <div style="font-size:13px;color:var(--text3);margin-bottom:{% if project.description %}4px{% else %}0{% endif %}">инициатор: {{ project.initiator }}</div>
-        {% endif %}
-        {% if project.description %}
-        <div style="font-size:13px;color:var(--text2);line-height:1.55">{{ project.description|truncatechars:160 }}</div>
-        {% endif %}
-      </div>
+<!-- LIST VIEW -->
+<div id="view-list">
+{% for project in projects %}
+<div class="card proj-full-card" style="margin-bottom:14px;border-left:4px solid {{ project.accent_color }}">
 
-      <!-- Stats block -->
-      <div style="display:flex;gap:16px;flex-shrink:0;text-align:center">
-        <div>
-          <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1">{{ project.task_count_ann }}</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:3px">задач</div>
-        </div>
-        {% if project.hours_total %}
-        <div>
-          <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1">{{ project.hours_total|floatformat:1 }}ч</div>
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:3px">часов</div>
-        </div>
-        {% endif %}
+  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <a href="{% url 'project_detail' project.pk %}" style="font-size:17px;font-weight:600;color:var(--text);text-decoration:none" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--text)'">{{ project.name }}</a>
+        {% if project.overdue_count %}<span class="badge" style="background:rgba(248,113,113,.15);color:var(--red);font-weight:600">{{ project.overdue_count }} просрочено</span>{% endif %}
       </div>
+      {% if project.initiator %}<div style="font-size:13px;color:var(--text3){% if project.description %};margin-bottom:3px{% endif %}">инициатор: {{ project.initiator }}</div>{% endif %}
+      {% if project.description %}<div style="font-size:13px;color:var(--text2);line-height:1.55">{{ project.description|truncatechars:160 }}</div>{% endif %}
     </div>
-
-    <!-- Status badges row -->
-    {% if project.task_count_ann %}
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-      {% if project.done_count %}<span class="badge b-status-done">{{ project.done_count }} выполнено</span>{% endif %}
-      {% if project.inprog_count %}<span class="badge b-status-in_progress">{{ project.inprog_count }} в работе</span>{% endif %}
-      {% if project.todo_count %}<span class="badge b-status-todo">{{ project.todo_count }} запланировано</span>{% endif %}
-      {% if project.deferred_count %}<span class="badge b-status-deferred">{{ project.deferred_count }} отложено</span>{% endif %}
-    </div>
-
-    <!-- Progress bar: done / total -->
-    {% if project.task_count_ann %}
-    <div style="margin-bottom:12px">
-      <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-        <div style="height:100%;background:var(--green);border-radius:2px;width:{% widthratio project.done_count project.task_count_ann 100 %}%;transition:width .3s"></div>
+    <div style="display:flex;gap:16px;flex-shrink:0;text-align:center">
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1">{{ project.task_count_ann }}</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:3px">задач</div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">{% widthratio project.done_count project.task_count_ann 100 %}% выполнено</div>
-    </div>
-    {% endif %}
-
-    <!-- Recent tasks inside card -->
-    {% if project.recent_tasks_preview %}
-    <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">последние задачи</div>
-      {% for task in project.recent_tasks_preview %}
-      <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
-        <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ task.task }}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-            <span>{{ task.date|date:"d.m.Y" }}</span>
-            {% if task.hours %}<span>{{ task.hours }}ч</span>{% endif %}
-            {% if task.due_date %}
-              {% if task.urgency == 'overdue' %}<span style="color:var(--red);font-weight:600">просрочено {{ task.due_date|date:"d.m" }}</span>
-              {% elif task.urgency == 'today' %}<span style="color:var(--amber);font-weight:600">срок сегодня</span>
-              {% elif task.urgency == 'soon' %}<span style="color:var(--amber)">до {{ task.due_date|date:"d.m" }}</span>
-              {% else %}<span>до {{ task.due_date|date:"d.m.Y" }}</span>
-              {% endif %}
-            {% endif %}
-            <span class="badge b-status-{{ task.status }}" style="padding:1px 7px;font-size:10px">{{ task.get_status_display }}</span>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-      {% if project.task_count_ann > 3 %}
-      <div style="margin-top:8px">
-        <a href="{% url 'project_detail' project.pk %}" style="font-size:12px;color:var(--accent2);text-decoration:none">все {{ project.task_count_ann }} задач →</a>
+      {% if project.hours_total %}
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1">{{ project.hours_total|floatformat:1 }}ч</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:3px">часов</div>
       </div>
       {% endif %}
     </div>
-    {% endif %}
-    {% else %}
-    <div style="font-size:13px;color:var(--text3);padding:4px 0">задач пока нет — <a href="{% url 'project_detail' project.pk %}" style="color:var(--accent2)">добавить</a></div>
-    {% endif %}
-
-    <!-- Card footer actions -->
-    <div style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-      <a href="{% url 'project_detail' project.pk %}" class="btn btn-ghost btn-sm">открыть</a>
-      <a href="{% url 'report' %}?project={{ project.pk }}" class="btn btn-ghost btn-sm">отчёт</a>
-      <form method="post" action="{% url 'project_delete' project.pk %}" style="margin-left:auto" onsubmit="return confirm('Удалить проект «{{ project.name }}» и {{ project.task_count_ann }} задач?')">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger btn-sm">удалить</button>
-      </form>
-    </div>
-
   </div>
-  {% endfor %}
+
+  {% if project.task_count_ann %}
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+    {% if project.done_count %}<span class="badge b-status-done">{{ project.done_count }} выполнено</span>{% endif %}
+    {% if project.inprog_count %}<span class="badge b-status-in_progress">{{ project.inprog_count }} в работе</span>{% endif %}
+    {% if project.todo_count %}<span class="badge b-status-todo">{{ project.todo_count }} запланировано</span>{% endif %}
+    {% if project.deferred_count %}<span class="badge b-status-deferred">{{ project.deferred_count }} отложено</span>{% endif %}
+  </div>
+  <div style="margin-bottom:10px">
+    <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+      <div style="height:100%;background:var(--green);border-radius:2px;width:{% widthratio project.done_count project.task_count_ann 100 %}%"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:3px">{% widthratio project.done_count project.task_count_ann 100 %}% выполнено</div>
+  </div>
+  {% if project.recent_tasks_preview %}
+  <div style="margin-bottom:10px">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">последние задачи</div>
+    {% for task in project.recent_tasks_preview %}
+    <div style="display:flex;align-items:flex-start;gap:7px;padding:5px 0;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
+      <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ task.task }}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:1px;display:flex;gap:8px;flex-wrap:wrap">
+          <span>{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.hours %}<span>{{ task.hours }}ч</span>{% endif %}
+          {% if task.due_date %}{% if task.urgency == 'overdue' %}<span style="color:var(--red);font-weight:600">просрочено {{ task.due_date|date:"d.m" }}</span>{% elif task.urgency == 'today' %}<span style="color:var(--amber);font-weight:600">срок сегодня</span>{% elif task.urgency == 'soon' %}<span style="color:var(--amber)">до {{ task.due_date|date:"d.m" }}</span>{% else %}<span>до {{ task.due_date|date:"d.m.Y" }}</span>{% endif %}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if project.task_count_ann > 3 %}<div style="margin-top:6px"><a href="{% url 'project_detail' project.pk %}" style="font-size:12px;color:var(--accent2);text-decoration:none">все {{ project.task_count_ann }} задач →</a></div>{% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div style="font-size:13px;color:var(--text3);margin-bottom:10px">задач пока нет — <a href="{% url 'project_detail' project.pk %}" style="color:var(--accent2)">добавить</a></div>
+  {% endif %}
+
+  <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)">
+    <a href="{% url 'project_detail' project.pk %}" class="btn btn-ghost btn-sm">открыть</a>
+    <a href="{% url 'report' %}?project={{ project.pk }}" class="btn btn-ghost btn-sm">отчёт</a>
+    <form method="post" action="{% url 'project_delete' project.pk %}" style="margin-left:auto" onsubmit="return confirm('Удалить проект «{{ project.name }}» и {{ project.task_count_ann }} задач?')">
+      {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">удалить</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+<!-- GRID VIEW -->
+<div id="view-grid" style="display:none" class="proj-grid">
+{% for project in projects %}
+<div class="card" style="margin-bottom:0;border-left:4px solid {{ project.accent_color }};display:flex;flex-direction:column">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+    <a href="{% url 'project_detail' project.pk %}" style="font-size:15px;font-weight:600;color:var(--text);text-decoration:none;line-height:1.3" onmouseover="this.style.color='var(--accent2)'" onmouseout="this.style.color='var(--text)'">{{ project.name }}</a>
+    {% if project.overdue_count %}<span class="badge" style="background:rgba(248,113,113,.15);color:var(--red);font-size:11px;font-weight:600;flex-shrink:0">{{ project.overdue_count }} !</span>{% endif %}
+  </div>
+  {% if project.initiator %}<div style="font-size:12px;color:var(--text3);margin-bottom:6px">{{ project.initiator }}</div>{% endif %}
+  <div style="display:flex;gap:12px;margin-bottom:8px">
+    <div><span style="font-size:18px;font-weight:700;color:var(--text)">{{ project.task_count_ann }}</span> <span style="font-size:11px;color:var(--text3)">задач</span></div>
+    {% if project.hours_total %}<div><span style="font-size:18px;font-weight:700;color:var(--text)">{{ project.hours_total|floatformat:0 }}</span> <span style="font-size:11px;color:var(--text3)">ч</span></div>{% endif %}
+  </div>
+  {% if project.task_count_ann %}
+  <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:5px">
+    <div style="height:100%;background:var(--green);width:{% widthratio project.done_count project.task_count_ann 100 %}%"></div>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:8px">{% widthratio project.done_count project.task_count_ann 100 %}% выполнено</div>
+  {% endif %}
+  <div style="margin-top:auto;display:flex;gap:6px;padding-top:8px;border-top:1px solid var(--border)">
+    <a href="{% url 'project_detail' project.pk %}" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center">открыть</a>
+    <a href="{% url 'report' %}?project={{ project.pk }}" class="btn btn-ghost btn-sm">отчёт</a>
+  </div>
+</div>
+{% endfor %}
+</div>
 
 {% else %}
-  <div class="empty">
-    <div class="empty-icon">📁</div>
-    {% if search %}проекты не найдены по запросу «{{ search }}»
-    {% else %}проектов пока нет — нажмите «+ новый проект»{% endif %}
-  </div>
+<div class="empty">
+  <div class="empty-icon">📁</div>
+  {% if search %}проекты не найдены по запросу «{{ search }}»
+  {% else %}проектов пока нет — нажмите «+ новый проект»{% endif %}
+</div>
 {% endif %}
+
+<script>
+function setView(v) {
+  document.getElementById('view-list').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('view-grid').style.display = v === 'grid' ? 'grid' : 'none';
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
+  document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
+  localStorage.setItem('tt-projects-view', v);
+}
+(function(){ setView(localStorage.getItem('tt-projects-view') || 'list'); })();
+</script>
 
 {% endblock %}
