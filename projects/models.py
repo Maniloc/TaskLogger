@@ -53,6 +53,8 @@ class Task(models.Model):
         null=True, blank=True,
         validators=[MinValueValidator(Decimal('0.1'))]
     )
+    start_date = models.DateField('Дата начала', null=True, blank=True)
+    due_date   = models.DateField('Крайний срок', null=True, blank=True)
     basis = models.TextField('Обоснование', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -63,6 +65,30 @@ class Task(models.Model):
 
     def __str__(self):
         return f'{self.date} — {self.task[:60]}'
+
+    @property
+    def days_until_due(self):
+        """Days until due_date. Negative = overdue. None if no due_date."""
+        if not self.due_date:
+            return None
+        from datetime import date
+        return (self.due_date - date.today()).days
+
+    @property
+    def urgency(self):
+        """'overdue' | 'today' | 'soon' (<=3d) | 'upcoming' (<=7d) | None"""
+        d = self.days_until_due
+        if d is None:
+            return None
+        if d < 0:
+            return 'overdue'
+        if d == 0:
+            return 'today'
+        if d <= 3:
+            return 'soon'
+        if d <= 7:
+            return 'upcoming'
+        return None
 
     @property
     def status_color(self):

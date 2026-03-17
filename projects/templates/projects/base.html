@@ -533,6 +533,23 @@ select option { background: var(--bg3); color: var(--text); }
   .nav-user { display: none; }
   .quick-panel { padding: .875rem 1rem; }
 }
+
+/* ── Active task cards (dashboard sidebar) ── */
+.active-task-card {
+  display: block; text-decoration: none;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 12px; margin-bottom: 6px;
+  transition: background .12s, border-color .12s, transform .1s;
+  cursor: pointer;
+}
+.active-task-card:hover { background: var(--surface); border-color: var(--border2); transform: translateX(2px); }
+.active-task-card.urgency-overdue { border-color: rgba(248,113,113,.5); background: rgba(248,113,113,.06); }
+.active-task-card.urgency-overdue:hover { background: rgba(248,113,113,.1); }
+.active-task-card.urgency-today { border-color: rgba(251,191,36,.6); background: rgba(251,191,36,.07); }
+.active-task-card.urgency-today:hover { background: rgba(251,191,36,.12); }
+.active-task-card.urgency-soon { border-color: rgba(251,191,36,.35); }
+.active-task-card.urgency-upcoming { border-color: var(--border2); }
+
 </style>
 </head>
 <body>

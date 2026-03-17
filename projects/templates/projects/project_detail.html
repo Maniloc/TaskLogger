@@ -8,7 +8,6 @@
   {{ project.name }}
 </div>
 
-<!-- Project header -->
 <div class="page-header">
   <div>
     <div class="page-title">{{ project.name }}</div>
@@ -25,7 +24,6 @@
   </div>
 </div>
 
-<!-- Edit project form (hidden by default) -->
 <div id="edit-proj" style="display:none;margin-bottom:1.25rem">
   <div class="card">
     <div class="card-title">редактировать проект</div>
@@ -59,7 +57,7 @@
 <!-- Add task form -->
 <div class="card" style="margin-bottom:1.5rem">
   <div class="card-title">добавить задачу</div>
-  <form method="post" action="{% url 'task_create' project.pk %}">
+  <form method="post" action="{% url 'task_create' project.pk %}" id="add-task-form">
     {% csrf_token %}
     <div class="form-grid">
       <div class="fg">
@@ -68,11 +66,19 @@
       </div>
       <div class="fg">
         <label>статус</label>
-        <select name="status">
+        <select name="status" id="add-status">
           {% for val,label in status_choices %}
           <option value="{{ val }}"{% if val == 'done' %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div class="fg" id="add-start-date" style="display:none">
+        <label>дата начала</label>
+        <input type="date" name="start_date">
+      </div>
+      <div class="fg" id="add-due-date" style="display:none">
+        <label>крайний срок</label>
+        <input type="date" name="due_date">
       </div>
       <div class="fg">
         <label>инициатор задачи</label>
@@ -98,11 +104,9 @@
   </form>
 </div>
 
-<!-- Task list section — visually separated -->
+<!-- Task list separator -->
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:.875rem">
-  <div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">
-    список задач
-  </div>
+  <div style="font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">список задач</div>
   <div style="flex:1;height:1px;background:var(--border)"></div>
   <div style="font-size:12px;color:var(--text3)">{{ page_obj.paginator.count }} задач</div>
 </div>
@@ -134,21 +138,28 @@
         <div class="task-text">{{ task.task }}</div>
         <div class="task-meta">
           <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.due_date %}
+            {% if task.urgency == 'overdue' %}
+              <span class="badge" style="background:rgba(248,113,113,.2);color:var(--red);font-weight:600">просрочено {{ task.due_date|date:"d.m" }}</span>
+            {% elif task.urgency == 'today' %}
+              <span class="badge" style="background:rgba(251,191,36,.2);color:var(--amber);font-weight:600">срок сегодня</span>
+            {% elif task.urgency == 'soon' %}
+              <span class="badge" style="background:rgba(251,191,36,.12);color:var(--amber)">до {{ task.due_date|date:"d.m" }}</span>
+            {% else %}
+              <span class="badge b-date">до {{ task.due_date|date:"d.m.Y" }}</span>
+            {% endif %}
+          {% endif %}
           {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
           {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
           <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
         </div>
         {% if task.basis %}
-        <div class="task-basis">
-          <span style="color:var(--text3)">обоснование:</span> {{ task.basis }}
-        </div>
+        <div class="task-basis"><span style="color:var(--text3)">обоснование:</span> {{ task.basis }}</div>
         {% endif %}
         <div class="task-actions">
           <a href="{% url 'task_edit' task.pk %}" class="btn btn-ghost btn-sm">редактировать</a>
-          <form method="post" action="{% url 'task_delete' task.pk %}" style="display:inline"
-                onsubmit="return confirm('Удалить задачу?')">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger btn-sm">удалить</button>
+          <form method="post" action="{% url 'task_delete' task.pk %}" style="display:inline" onsubmit="return confirm('Удалить задачу?')">
+            {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">удалить</button>
           </form>
         </div>
       </div>
@@ -158,30 +169,35 @@
 
   {% if page_obj.has_other_pages %}
   <div class="pagination">
-    {% if page_obj.has_previous %}
-    <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>
-    {% endif %}
+    {% if page_obj.has_previous %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>{% endif %}
     {% for n in page_obj.paginator.page_range %}
       {% if n == page_obj.number %}<span class="page-link current">{{ n }}</span>
-      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}
-        <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}page={{ n }}">{{ n }}</a>
-      {% endif %}
+      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}page={{ n }}">{{ n }}</a>{% endif %}
     {% endfor %}
-    {% if page_obj.has_next %}
-    <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>
-    {% endif %}
+    {% if page_obj.has_next %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if month %}month={{ month }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>{% endif %}
   </div>
   {% endif %}
 {% else %}
   <div class="empty">
     <div class="empty-icon">✅</div>
-    {% if search or month or status_filter %}
-      задачи по выбранным фильтрам не найдены
-    {% else %}
-      в этом проекте пока нет задач<br>
-      <span style="font-size:13px">добавьте первую задачу выше</span>
-    {% endif %}
+    {% if search or month or status_filter %}задачи по выбранным фильтрам не найдены
+    {% else %}в этом проекте пока нет задач<br><span style="font-size:13px">добавьте первую задачу выше</span>{% endif %}
   </div>
 {% endif %}
+
+<script>
+function updateAddDates(val) {
+  var s = document.getElementById('add-start-date');
+  var d = document.getElementById('add-due-date');
+  if (!s || !d) return;
+  s.style.display = val === 'todo' ? '' : 'none';
+  d.style.display = (val === 'todo' || val === 'in_progress' || val === 'deferred') ? '' : 'none';
+}
+var addSel = document.getElementById('add-status');
+if (addSel) {
+  addSel.addEventListener('change', function(){ updateAddDates(this.value); });
+  updateAddDates(addSel.value);
+}
+</script>
 
 {% endblock %}

@@ -72,10 +72,28 @@ def index(request):
     )
     today = date.today()
     month_start = today.replace(day=1)
-    recent_tasks = Task.objects.filter(
-        project__user=request.user,
-        date__gte=month_start,
-    ).select_related('project').order_by('-date')[:5]
+    from django.db.models import Case, When, Value, IntegerField
+    active_tasks = (
+        Task.objects
+        .filter(
+            project__user=request.user,
+            status__in=[Task.STATUS_TODO, Task.STATUS_IN_PROGRESS, Task.STATUS_DEFERRED]
+        )
+        .select_related('project')
+        .annotate(
+            urgency_order=Case(
+                When(due_date__lt=today, then=Value(0)),
+                When(due_date=today, then=Value(1)),
+                When(due_date__lte=today + timedelta(days=3), then=Value(2)),
+                When(due_date__lte=today + timedelta(days=7), then=Value(3)),
+                When(due_date__isnull=False, then=Value(4)),
+                default=Value(5),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by('urgency_order', 'due_date', '-date')[:10]
+    )
+    recent_tasks = active_tasks
 
     agg = Task.objects.filter(
         project__user=request.user,
@@ -117,9 +135,17 @@ def index(request):
     proj_dist_labels = _jdumps([p.name for p in proj_dist])
     proj_dist_hours  = _jdumps([float(p.hours_total or 0) for p in proj_dist])
 
+    done_recent = (
+        Task.objects
+        .filter(project__user=request.user, status=Task.STATUS_DONE, date__gte=month_start)
+        .select_related('project')
+        .order_by('-date')[:5]
+    )
+
     return render(request, 'projects/index.html', {
         'projects': projects,
         'recent_tasks': recent_tasks,
+        'done_recent': done_recent,
         'tasks_count': agg['count'] or 0,
         'tasks_hours': agg['hours'] or Decimal('0'),
         'today': today,
@@ -248,6 +274,8 @@ def task_create(request, project_pk):
         status=request.POST.get('status', Task.STATUS_DONE),
         initiator=request.POST.get('initiator', '').strip(),
         hours=hours,
+        start_date = request.POST.get('start_date', '').strip() or None,
+        due_date   = request.POST.get('due_date', '').strip() or None,
         basis=request.POST.get('basis', '').strip(),
     )
     messages.success(request, 'Задача добавлена')
@@ -288,6 +316,8 @@ def task_edit(request, pk):
         task.status = request.POST.get('status', task.status)
         task.initiator = request.POST.get('initiator', '').strip()
         task.hours = hours
+        task.start_date = request.POST.get('start_date', '').strip() or None
+        task.due_date   = request.POST.get('due_date', '').strip() or None
         task.basis = request.POST.get('basis', '').strip()
         task.save()
         messages.success(request, 'Задача обновлена')
@@ -331,6 +361,8 @@ def quick_add(request):
             status=request.POST.get('status', Task.STATUS_DONE),
             initiator=request.POST.get('initiator', '').strip(),
             hours=hours,
+        start_date = request.POST.get('start_date', '').strip() or None,
+        due_date   = request.POST.get('due_date', '').strip() or None,
             basis=request.POST.get('basis', '').strip(),
         )
         messages.success(request, f'Задача добавлена в «{project.name}»')

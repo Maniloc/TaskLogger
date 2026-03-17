@@ -11,23 +11,63 @@
   <form method="post">
     {% csrf_token %}
     <div class="form-grid">
-      <div class="fg"><label>дата *</label><input type="date" name="date" value="{{ task.date|date:'Y-m-d' }}" required></div>
-      <div class="fg"><label>статус</label>
-        <select name="status">{% for val,label in status_choices %}<option value="{{ val }}"{% if val == task.status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <div class="fg">
+        <label>дата *</label>
+        <input type="date" name="date" value="{{ task.date|date:'Y-m-d' }}" required>
       </div>
-      <div class="fg"><label>инициатор</label><input type="text" name="initiator" value="{{ task.initiator }}"></div>
+      <div class="fg">
+        <label>статус</label>
+        <select name="status" id="edit-status">
+          {% for val,label in status_choices %}
+          <option value="{{ val }}"{% if val == task.status %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fg" id="edit-start-date">
+        <label>дата начала</label>
+        <input type="date" name="start_date" value="{{ task.start_date|date:'Y-m-d'|default:'' }}">
+      </div>
+      <div class="fg" id="edit-due-date">
+        <label>крайний срок</label>
+        <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d'|default:'' }}">
+      </div>
+      <div class="fg">
+        <label>инициатор</label>
+        <input type="text" name="initiator" value="{{ task.initiator }}">
+      </div>
       <div class="fg">
         <label>часы</label>
         <input type="text" name="hours" value="{{ task.hours|default:'' }}" placeholder="2.5 или 2ч30м">
         <span class="field-hint">Форматы: 2.5 · 2,5 · 2ч30м · 2:30</span>
       </div>
-      <div class="fg full"><label>задача / описание *</label><textarea name="task" required>{{ task.task }}</textarea></div>
-      <div class="fg full"><label>обоснование</label><textarea name="basis" style="min-height:52px">{{ task.basis }}</textarea></div>
+      <div class="fg full">
+        <label>задача / описание *</label>
+        <textarea name="task" required>{{ task.task }}</textarea>
+      </div>
+      <div class="fg full">
+        <label>обоснование</label>
+        <textarea name="basis" style="min-height:52px">{{ task.basis }}</textarea>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:4px">
+    <div style="display:flex;gap:8px;margin-top:1rem">
       <button type="submit" class="btn btn-primary">сохранить</button>
       <a href="{% url 'project_detail' task.project.pk %}" class="btn btn-ghost">отмена</a>
     </div>
   </form>
 </div>
+
+<script>
+function updateEditDates(val) {
+  var s = document.getElementById('edit-start-date');
+  var d = document.getElementById('edit-due-date');
+  if (!s || !d) return;
+  s.style.display = val === 'todo' ? '' : 'none';
+  d.style.display = (val === 'todo' || val === 'in_progress' || val === 'deferred') ? '' : 'none';
+}
+var sel = document.getElementById('edit-status');
+if (sel) {
+  sel.addEventListener('change', function(){ updateEditDates(this.value); });
+  updateEditDates(sel.value);
+}
+</script>
 {% endblock %}
