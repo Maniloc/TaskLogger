@@ -184,31 +184,30 @@
     </div>
     {% endif %}
 
-    <div class="sidebar-label" style="margin-bottom:10px">последние выполненные задачи</div>
-    {% with done_tasks=done_recent %}
-    {% if done_tasks %}
-      {% for task in done_tasks %}
-      <div class="card" style="border-left:3px solid {{ task.status_color }}">
-        <div class="task-row">
-          <div class="dot dot-{{ task.status }}"></div>
-          <div style="flex:1">
-            <div class="task-text">{{ task.task|truncatechars:110 }}</div>
-            <div class="task-meta">
-              <span class="badge b-proj">{{ task.project.name }}</span>
-              <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
-              {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-            </div>
+    <div class="sidebar-label" style="margin-bottom:8px">
+      последние выполненные задачи
+      {% if done_recent %}<span style="font-weight:400;color:var(--text3);margin-left:4px">({{ done_recent|length }})</span>{% endif %}
+    </div>
+    {% if done_recent %}
+    <div style="max-height:380px;overflow-y:auto;padding-right:3px" class="active-tasks-scroll">
+      {% for task in done_recent %}
+      <a href="{% url 'task_edit' task.pk %}" class="mini-task-link" style="margin-bottom:4px">
+        <div class="dot dot-{{ task.status }}" style="margin-top:3px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div class="mini-task-text">{{ task.task }}</div>
+          <div class="mini-task-proj">
+            {{ task.project.name }} · {{ task.date|date:"d.m.Y" }}{% if task.hours %} · {{ task.hours }}ч{% endif %}
           </div>
         </div>
-      </div>
+      </a>
       {% endfor %}
+    </div>
     {% else %}
-      <div class="empty">
-        <div class="empty-icon">📋</div>
-        выполненных задач в этом месяце пока нет
-      </div>
+    <div class="empty" style="padding:2rem 1rem">
+      <div class="empty-icon">📋</div>
+      выполненных задач в этом месяце пока нет
+    </div>
     {% endif %}
-    {% endwith %}
   </div>
 </div>
 

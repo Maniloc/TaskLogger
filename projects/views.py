@@ -139,7 +139,7 @@ def index(request):
         Task.objects
         .filter(project__user=request.user, status=Task.STATUS_DONE, date__gte=month_start)
         .select_related('project')
-        .order_by('-date')[:5]
+        .order_by('-date')[:20]
     )
 
     # Group active tasks by urgency for sidebar
