@@ -1,0 +1,85 @@
+{% extends 'projects/base.html' %}
+{% block title %}{{ target_user.username }} — Администрирование{% endblock %}
+{% block content %}
+
+<div class="breadcrumb">
+  <a href="{% url 'admin_panel' %}">администрирование</a>
+  <span>›</span>
+  {{ target_user.username }}
+</div>
+
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--tag-bg);color:var(--tag-text);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">
+      {{ target_user.username|first|upper }}
+    </div>
+    <div>
+      <div class="page-title">{{ target_user.username }}</div>
+      <div class="page-sub">
+        зарегистрирован {{ target_user.date_joined|date:"d.m.Y" }}
+        {% if target_user.last_login %} · последний вход {{ target_user.last_login|date:"d.m.Y" }}{% endif %}
+      </div>
+    </div>
+  </div>
+  <a href="{% url 'report' %}?user={{ target_user.pk }}" class="btn btn-ghost btn-sm">отчёт пользователя</a>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card">
+    <div class="stat-val">{{ total.count|default:0 }}</div>
+    <div class="stat-lbl">всего задач</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ total.hours|default:0|floatformat:1 }}ч</div>
+    <div class="stat-lbl">всего часов</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ tasks_month.count|default:0 }}</div>
+    <div class="stat-lbl">задач в этом месяце</div>
+  </div>
+</div>
+
+<!-- Projects -->
+<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">проекты</div>
+{% if projects %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:1.75rem">
+  {% for proj in projects %}
+  <div class="card" style="margin-bottom:0">
+    <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px">{{ proj.name }}</div>
+    {% if proj.initiator %}<div style="font-size:12px;color:var(--text3);margin-bottom:6px">{{ proj.initiator }}</div>{% endif %}
+    <div style="display:flex;gap:12px">
+      <div><span style="font-size:16px;font-weight:600;color:var(--text)">{{ proj.task_count_ann }}</span> <span style="font-size:11px;color:var(--text3)">задач</span></div>
+      <div><span style="font-size:16px;font-weight:600;color:var(--text)">{{ proj.hours_total|default:0|floatformat:1 }}</span> <span style="font-size:11px;color:var(--text3)">ч</span></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty" style="padding:1.5rem">нет проектов</div>
+{% endif %}
+
+<!-- Recent tasks -->
+<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">последние задачи</div>
+{% if recent_tasks %}
+  {% for task in recent_tasks %}
+  <div class="card">
+    <div class="task-row">
+      <div class="dot dot-{{ task.status }}"></div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:3px">{{ task.project.name }}</div>
+        <div class="task-text">{{ task.task }}</div>
+        <div class="task-meta">
+          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+          <span class="badge" style="background:var(--bg3);color:var(--text3);font-size:10px">{{ task.get_status_display }}</span>
+        </div>
+        {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">задач нет</div>
+{% endif %}
+
+{% endblock %}

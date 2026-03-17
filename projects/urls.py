@@ -11,4 +11,6 @@ urlpatterns = [
     path('tasks/<int:pk>/edit/', views.task_edit, name='task_edit'),
     path('tasks/quick-add/', views.quick_add, name='quick_add'),
     path('report/', views.report, name='report'),
+    path('admin-panel/', views.admin_panel, name='admin_panel'),
+    path('admin-panel/user/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),
 ]

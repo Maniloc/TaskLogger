@@ -1,0 +1,106 @@
+{% extends 'projects/base.html' %}
+{% block title %}Администрирование — TaskTracker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">администрирование</div>
+    <div class="page-sub">всего задач: {{ total_count }} · итого часов: {{ total_hours|floatformat:1 }}ч</div>
+  </div>
+</div>
+
+<!-- User cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:1.75rem">
+  <a href="{% url 'admin_panel' %}" class="card" style="margin-bottom:0;text-decoration:none;border-color:{% if not user_filter %}var(--accent){% else %}var(--border){% endif %}">
+    <div style="font-size:13px;font-weight:500;color:var(--text)">все пользователи</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:3px">{{ total_count }} задач</div>
+  </a>
+  {% for u in users %}
+  <a href="{% url 'admin_user_detail' u.pk %}" class="card" style="margin-bottom:0;text-decoration:none;transition:border-color .12s"
+     onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--tag-bg);color:var(--tag-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">
+        {{ u.username|first|upper }}
+      </div>
+      <div style="font-size:13px;font-weight:500;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.username }}</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div>
+        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.task_count }}</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">задач</div>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.hours_total|default:0|floatformat:0 }}ч</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">часов</div>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.project_count }}</div>
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">проектов</div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<div class="filter-bar" style="margin-bottom:1.25rem">
+  <form method="get" style="display:contents">
+    <input type="text" name="search" placeholder="поиск по задачам, проектам, пользователям..." value="{{ search }}" style="flex:2;min-width:200px">
+    <select name="user">
+      <option value="">все пользователи</option>
+      {% for u in all_users %}<option value="{{ u.pk }}"{% if user_filter == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.username }}</option>{% endfor %}
+    </select>
+    <select name="status">
+      <option value="">все статусы</option>
+      {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from }}" style="width:auto">
+    <input type="date" name="date_to" value="{{ date_to }}" style="width:auto">
+    <button type="submit" class="btn btn-ghost btn-sm">применить</button>
+    {% if search or status_filter or user_filter or date_from or date_to %}
+    <a href="{% url 'admin_panel' %}" class="btn btn-ghost btn-sm">сброс</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Tasks table -->
+{% if tasks %}
+  {% for task in tasks %}
+  <div class="card" style="margin-bottom:8px">
+    <div class="task-row">
+      <div class="dot dot-{{ task.status }}" title="{{ task.get_status_display }}"></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:500;color:var(--accent2)">{{ task.project.user.username }}</span>
+          <span style="color:var(--text3);font-size:12px">/</span>
+          <span style="font-size:12px;color:var(--text2)">{{ task.project.name }}</span>
+        </div>
+        <div class="task-text">{{ task.task }}</div>
+        <div class="task-meta">
+          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+          {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+          <span class="badge" style="background:var(--bg3);color:var(--text3);font-size:10px">{{ task.get_status_display }}</span>
+        </div>
+        {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>{% endif %}
+    {% for n in page_obj.paginator.page_range %}
+      {% if n == page_obj.number %}<span class="page-link current">{{ n }}</span>
+      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}page={{ n }}">{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>{% endif %}
+  </div>
+  {% endif %}
+{% else %}
+  <div class="empty">задачи не найдены</div>
+{% endif %}
+
+{% endblock %}
