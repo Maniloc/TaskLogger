@@ -375,37 +375,11 @@ function updateNavBadge(n){const b=document.getElementById('nav-unread-badge');i
 // Lightbox
 function openImg(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').style.display='flex';}
 
-// Sidebar helpers
-function toggleNew(){document.getElementById('new-panel').classList.toggle('open');if(document.getElementById('new-panel').classList.contains('open')){const s=document.getElementById('user-search');if(s)s.focus();}}
-function filterUsers(){const q=document.getElementById('user-search').value.toLowerCase();document.querySelectorAll('.chat-user-item').forEach(el=>el.style.display=el.dataset.name.includes(q)?'':'none');}
-
-// DM/Group mode selector
-let chatMode='dm', selectedUsers=new Set();
-function setMode(m){
-  chatMode=m;
-  document.getElementById('mode-dm').className='btn btn-sm'+(m==='dm'?' btn-primary':' btn-ghost');
-  document.getElementById('mode-group').className='btn btn-sm'+(m==='group'?' btn-primary':' btn-ghost');
-  document.getElementById('group-title-row').style.display=m==='group'?'block':'none';
-  document.getElementById('start-group-btn').style.display=m==='group'&&selectedUsers.size>0?'block':'none';
-  selectedUsers.clear(); document.querySelectorAll('.chat-user-item').forEach(el=>{el.style.background='';document.getElementById('sel-'+el.dataset.uid).style.display='none';});
-}
-function selectUser(el, uid){
-  if(chatMode==='dm'){window.location.href='/chat/open/'+uid+'/';}
-  else{
-    if(selectedUsers.has(uid)){selectedUsers.delete(uid);el.style.background='';document.getElementById('sel-'+uid).style.display='none';}
-    else{selectedUsers.add(uid);el.style.background='var(--accent-bg)';document.getElementById('sel-'+uid).style.display='block';}
-    document.getElementById('start-group-btn').style.display=selectedUsers.size>0?'block':'none';
-  }
-}
-async function startGroup(){
-  const title=document.getElementById('group-title').value.trim()||'Беседа';
-  const res=await fetch('/chat/group/create/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({title,user_ids:[...selectedUsers]})});
-  if(res.ok){const d=await res.json();window.location.href='/chat/'+d.conv_id+'/';}
-  else alert('Ошибка при создании беседы');
-}
+// sidebar/group JS loaded via _new_panel_js.html below
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.getElementById('lightbox').style.display='none';document.getElementById('emoji-picker-wrap').style.display='none';document.getElementById('new-panel').classList.remove('open');ov.style.display='none';}});
 
 poll();
 </script>
+{% include 'projects/chat/_new_panel_js.html' %}
 {% endblock %}

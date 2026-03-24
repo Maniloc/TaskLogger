@@ -51,17 +51,5 @@
     </div>
   </div>
 </div>
-<script>
-function toggleNew() {
-  document.getElementById('new-panel').classList.toggle('open');
-  if (document.getElementById('new-panel').classList.contains('open'))
-    document.getElementById('user-search') && document.getElementById('user-search').focus();
-}
-function filterUsers() {
-  const q = document.getElementById('user-search').value.toLowerCase();
-  document.querySelectorAll('.chat-user-item').forEach(el => {
-    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
-  });
-}
-</script>
+{% include 'projects/chat/_new_panel_js.html' %}
 {% endblock %}

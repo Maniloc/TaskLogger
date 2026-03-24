@@ -1,0 +1,77 @@
+<script>
+const _CSRF = (typeof CSRF !== 'undefined') ? CSRF : '{{ csrf_token }}';
+
+function toggleNew() {
+  const p = document.getElementById('new-panel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) {
+    const s = document.getElementById('user-search');
+    if (s) s.focus();
+  }
+}
+
+function filterUsers() {
+  const q = document.getElementById('user-search').value.toLowerCase();
+  document.querySelectorAll('.chat-user-item').forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+let _chatMode = 'dm';
+let _selectedUsers = new Set();
+
+function setMode(m) {
+  _chatMode = m;
+  const dmBtn    = document.getElementById('mode-dm');
+  const grpBtn   = document.getElementById('mode-group');
+  const titleRow = document.getElementById('group-title-row');
+  const startBtn = document.getElementById('start-group-btn');
+  if (dmBtn)    dmBtn.className  = 'btn btn-sm ' + (m === 'dm'    ? 'btn-primary' : 'btn-ghost');
+  if (grpBtn)   grpBtn.className = 'btn btn-sm ' + (m === 'group' ? 'btn-primary' : 'btn-ghost');
+  if (titleRow) titleRow.style.display = m === 'group' ? 'block' : 'none';
+  if (startBtn) startBtn.style.display = 'none';
+  _selectedUsers.clear();
+  document.querySelectorAll('.chat-user-item').forEach(el => {
+    el.style.background = '';
+    const sel = document.getElementById('sel-' + el.dataset.uid);
+    if (sel) sel.style.display = 'none';
+  });
+}
+
+function selectUser(el, uid) {
+  if (_chatMode === 'dm') {
+    window.location.href = '/chat/open/' + uid + '/';
+  } else {
+    const sel = document.getElementById('sel-' + uid);
+    if (_selectedUsers.has(uid)) {
+      _selectedUsers.delete(uid);
+      el.style.background = '';
+      if (sel) sel.style.display = 'none';
+    } else {
+      _selectedUsers.add(uid);
+      el.style.background = 'var(--accent-bg)';
+      if (sel) sel.style.display = 'block';
+    }
+    const startBtn = document.getElementById('start-group-btn');
+    if (startBtn) startBtn.style.display = _selectedUsers.size > 0 ? 'block' : 'none';
+  }
+}
+
+async function startGroup() {
+  const titleEl = document.getElementById('group-title');
+  const title   = titleEl ? titleEl.value.trim() : '';
+  if (_selectedUsers.size === 0) { alert('Выберите хотя бы одного участника'); return; }
+  const res = await fetch('/chat/group/create/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _CSRF },
+    body: JSON.stringify({ title: title || 'Беседа', user_ids: [..._selectedUsers] }),
+  });
+  if (res.ok) {
+    const d = await res.json();
+    window.location.href = '/chat/' + d.conv_id + '/';
+  } else {
+    const e = await res.json().catch(() => ({}));
+    alert(e.error || 'Ошибка при создании беседы');
+  }
+}
+</script>
