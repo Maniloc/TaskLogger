@@ -17,3 +17,5 @@ __all__ = [
     'admin_panel', 'admin_user_detail',
     'analytics',
 ]
+
+from .chat import chat_list, chat_open, chat_room, chat_send, chat_poll, chat_unread

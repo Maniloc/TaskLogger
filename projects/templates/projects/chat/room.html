@@ -1,0 +1,260 @@
+{% extends 'projects/chat/base_chat.html' %}
+{% block title %}{{ other.username }} — Чат{% endblock %}
+{% block chat_content %}
+
+<div class="chat-layout">
+
+  <!-- Sidebar -->
+  <div class="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <span class="chat-sidebar-title">
+        сообщения
+        <span id="nav-unread-badge" class="chat-unread-badge" style="margin-left:6px;{% if not total_unread %}display:none{% endif %}">{{ total_unread }}</span>
+      </span>
+      <button class="chat-new-btn" onclick="toggleNew()" title="Новый диалог">+</button>
+    </div>
+
+    <div class="chat-new-panel" id="new-panel">
+      <input class="chat-search" type="text" placeholder="Найти пользователя..." id="user-search" oninput="filterUsers()">
+      <div class="chat-user-list" id="user-list">
+        {% for u in all_users %}
+        <a href="{% url 'chat_open' u.pk %}" class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}">
+          <div class="chat-user-av">{{ u.username|first|upper }}</div>
+          <div class="chat-user-name">
+            {% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="chat-conv-list">
+      {% for item in convs_data %}
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %}">
+        <div class="chat-av">{{ item.other.username|first|upper }}</div>
+        <div class="chat-conv-body">
+          <div class="chat-conv-name">
+            {% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}
+          </div>
+          <div class="chat-conv-preview">
+            {% if item.last %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:30 }}{% else %}нет сообщений{% endif %}
+          </div>
+        </div>
+        <div class="chat-conv-meta">
+          {% if item.last %}<span class="chat-conv-time">{{ item.last.created_at|date:"H:i" }}</span>{% endif %}
+          {% if item.unread %}<span class="chat-unread-badge" id="badge-{{ item.conv.pk }}">{{ item.unread }}</span>{% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Chat room -->
+  <div class="chat-main">
+    <div class="chat-main-header">
+      <div class="chat-av" style="width:32px;height:32px;font-size:12px">{{ other.username|first|upper }}</div>
+      <div>
+        <div class="chat-main-name">
+          {% if other.profile.display_name %}{{ other.profile.display_name }}{% else %}{{ other.username }}{% endif %}
+        </div>
+        {% if other.profile.position %}<div style="font-size:12px;color:var(--text3)">{{ other.profile.position }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="chat-messages" id="messages">
+      {% for msg in messages_qs %}
+      {% if forloop.first or msg.created_at|date:"d.m.Y" != messages_qs|last|date:"d.m.Y" %}
+      {% endif %}
+      <div class="msg-row {% if msg.sender == request.user %}mine{% endif %}" data-id="{{ msg.pk }}" data-date="{{ msg.created_at|date:'d.m.Y' }}">
+        <div class="msg-av">{{ msg.sender.username|first|upper }}</div>
+        <div class="msg-bubble">{{ msg.text }}</div>
+        <span class="msg-time">{{ msg.created_at|date:"H:i" }}</span>
+      </div>
+      {% empty %}
+      <div style="text-align:center;color:var(--text3);font-size:13px;padding:2rem 0">
+        Начните переписку — напишите первое сообщение
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="msg-input" placeholder="Написать сообщение..." rows="1"></textarea>
+      <button class="chat-send-btn" onclick="sendMessage()" title="Отправить (Enter)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CONV_ID = {{ conv.pk }};
+const ME_ID   = {{ request.user.pk }};
+const SEND_URL = '{% url "chat_send" conv.pk %}';
+const POLL_URL = '{% url "chat_poll" conv.pk %}';
+const CSRF    = '{{ csrf_token }}';
+
+let lastId = {% if messages_qs %}{{ messages_qs.last.pk|default:0 }}{% else %}0{% endif %};
+let pollTimer = null;
+let lastDate = null;
+
+// ── Auto-resize textarea ──
+const input = document.getElementById('msg-input');
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ── Scroll to bottom ──
+function scrollBottom(smooth) {
+  const el = document.getElementById('messages');
+  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+}
+scrollBottom(false);
+
+// ── Day separator ──
+function daySep(dateStr) {
+  if (dateStr === lastDate) return null;
+  lastDate = dateStr;
+  const d = document.createElement('div');
+  d.className = 'chat-day-sep';
+  d.innerHTML = `<span>${dateStr}</span>`;
+  return d;
+}
+
+// ── Render message bubble ──
+function renderMsg(m) {
+  const sep = daySep(m.date);
+  const msgs = document.getElementById('messages');
+  if (sep) msgs.appendChild(sep);
+
+  // Check if previous was same sender (hide avatar)
+  const prev = msgs.lastElementChild;
+  const prevMine = prev && prev.classList.contains('mine');
+  const curMine  = m.mine !== undefined ? m.mine : (m.sender_id === ME_ID);
+
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (curMine ? ' mine' : '');
+  row.dataset.id = m.id;
+  row.dataset.date = m.date;
+
+  // Hide avatar if same sender as previous
+  const sameDir = prev && prev.classList.contains('msg-row') && prevMine === curMine;
+  row.innerHTML = `
+    <div class="msg-av" style="${sameDir ? 'visibility:hidden' : ''}">${m.sender[0].toUpperCase()}</div>
+    <div class="msg-bubble">${escHtml(m.text)}</div>
+    <span class="msg-time">${m.created_at}</span>
+  `;
+  msgs.appendChild(row);
+  return row;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── Send ──
+async function sendMessage() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+
+  const res = await fetch(SEND_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken': CSRF},
+    body: JSON.stringify({text}),
+  });
+  if (res.ok) {
+    const m = await res.json();
+    m.mine = true;
+    renderMsg(m);
+    lastId = m.id;
+    scrollBottom(true);
+  }
+}
+
+// ── Poll ──
+async function poll() {
+  try {
+    const res = await fetch(`${POLL_URL}?since=${lastId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const wasBottom = isNearBottom();
+    data.messages.forEach(m => {
+      if (m.id > lastId) {
+        renderMsg(m);
+        lastId = m.id;
+      }
+    });
+    if (wasBottom && data.messages.length) scrollBottom(true);
+
+    // Update nav badge
+    updateNavBadge(data.total_unread);
+  } catch(e) {}
+  pollTimer = setTimeout(poll, 2000);
+}
+
+function isNearBottom() {
+  const el = document.getElementById('messages');
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+}
+
+function updateNavBadge(count) {
+  const badge = document.getElementById('nav-unread-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+  // Also update any global nav badge
+  document.querySelectorAll('.nav-chat-badge').forEach(b => {
+    b.textContent = count;
+    b.style.display = count > 0 ? '' : 'none';
+  });
+}
+
+// Build day separators for existing messages
+(function buildSeps() {
+  const rows = document.querySelectorAll('.msg-row');
+  rows.forEach(row => {
+    const d = row.dataset.date;
+    if (d !== lastDate) {
+      const sep = document.createElement('div');
+      sep.className = 'chat-day-sep';
+      sep.innerHTML = `<span>${d}</span>`;
+      row.before(sep);
+      lastDate = d;
+    }
+  });
+})();
+
+// ── New chat panel ──
+function toggleNew() {
+  document.getElementById('new-panel').classList.toggle('open');
+  if (document.getElementById('new-panel').classList.contains('open'))
+    document.getElementById('user-search').focus();
+}
+function filterUsers() {
+  const q = document.getElementById('user-search').value.toLowerCase();
+  document.querySelectorAll('.chat-user-item').forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+// Start polling
+poll();
+window.addEventListener('beforeunload', () => clearTimeout(pollTimer));
+</script>
+{% endblock %}

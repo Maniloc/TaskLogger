@@ -631,6 +631,11 @@ select option { background: var(--bg3); color: var(--text); }
     {% endif %}
   </div>
   <div class="nav-right">
+    <a href="{% url 'chat_list' %}" style="position:relative;display:inline-flex;align-items:center;padding:5px 10px;border:1px solid #333;border-radius:5px;color:#666;font-size:12px;text-decoration:none;transition:color .12s" onmouseover="this.style.color='#aaa';this.style.borderColor='#555'" onmouseout="this.style.color='#666';this.style.borderColor='#333'" title="Сообщения">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      чат
+      <span id="global-chat-badge" class="nav-chat-badge" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;display:none">0</span>
+    </a>
     <button class="nav-add" onclick="toggleQuick()" type="button">+ задача</button>
     <div class="theme-dot" style="background:#5b7fff" title="Dark Slate"   onclick="setTheme('dark-slate')"   id="td-dark-slate"></div>
     <div class="theme-dot" style="background:#4aba72" title="Dark Forest"  onclick="setTheme('dark-forest')"  id="td-dark-forest"></div>
@@ -730,6 +735,29 @@ document.addEventListener('keydown', e => {
     if (p) p.classList.remove('open');
   }
 });
+
+// ── Global chat unread badge polling ──
+(function() {
+  const badge = document.getElementById('global-chat-badge');
+  if (!badge) return;
+  const isChat = window.location.pathname.startsWith('/chat/');
+  if (isChat) return; // chat room handles its own badge
+  function pollUnread() {
+    fetch('/chat/unread/')
+      .then(r => r.json())
+      .then(data => {
+        if (data.unread > 0) {
+          badge.textContent = data.unread;
+          badge.style.display = '';
+        } else {
+          badge.style.display = 'none';
+        }
+      })
+      .catch(() => {});
+    setTimeout(pollUnread, 15000);
+  }
+  setTimeout(pollUnread, 3000);
+})();
 </script>
 </body>
 </html>

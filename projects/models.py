@@ -141,3 +141,49 @@ class UserProfile(models.Model):
         if not parts and self.last_name:
             parts.append(self.last_name[0].upper())
         return ''.join(parts) or self.user.username[:2].upper()
+
+
+class Conversation(models.Model):
+    participants = models.ManyToManyField(
+        User, related_name='conversations', verbose_name='Участники'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Диалог'
+        verbose_name_plural = 'Диалоги'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        names = ', '.join(u.username for u in self.participants.all()[:3])
+        return f'Диалог: {names}'
+
+    def other_participant(self, user):
+        return self.participants.exclude(pk=user.pk).first()
+
+    def last_message(self):
+        return self.messages.order_by('-created_at').first()
+
+    def unread_count(self, user):
+        return self.messages.filter(is_read=False).exclude(sender=user).count()
+
+
+class Message(models.Model):
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, related_name='messages'
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='sent_messages',
+        verbose_name='Отправитель'
+    )
+    text = models.TextField('Текст')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        verbose_name = 'Сообщение'
+        verbose_name_plural = 'Сообщения'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.sender.username}: {self.text[:40]}'

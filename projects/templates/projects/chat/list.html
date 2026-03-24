@@ -1,0 +1,83 @@
+{% extends 'projects/chat/base_chat.html' %}
+{% block chat_content %}
+
+<div class="chat-layout">
+
+  <!-- Sidebar -->
+  <div class="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <span class="chat-sidebar-title">
+        сообщения
+        {% if total_unread %}<span class="chat-unread-badge" style="margin-left:6px">{{ total_unread }}</span>{% endif %}
+      </span>
+      <button class="chat-new-btn" onclick="toggleNew()" title="Новый диалог">+</button>
+    </div>
+
+    <div class="chat-new-panel" id="new-panel">
+      <input class="chat-search" type="text" placeholder="Найти пользователя..." id="user-search" oninput="filterUsers()">
+      <div class="chat-user-list" id="user-list">
+        {% for u in all_users %}
+        <a href="{% url 'chat_open' u.pk %}" class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}">
+          <div class="chat-user-av">{{ u.username|first|upper }}</div>
+          <div class="chat-user-name">
+            {% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}
+            <span style="font-size:11px;color:var(--text3);margin-left:4px">@{{ u.username }}</span>
+          </div>
+        </a>
+        {% empty %}
+        <div style="font-size:12px;color:var(--text3);padding:8px">Нет других пользователей</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="chat-conv-list">
+      {% for item in convs_data %}
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item">
+        <div class="chat-av">{{ item.other.username|first|upper }}</div>
+        <div class="chat-conv-body">
+          <div class="chat-conv-name">
+            {% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}
+          </div>
+          <div class="chat-conv-preview">
+            {% if item.last %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text }}{% else %}нет сообщений{% endif %}
+          </div>
+        </div>
+        <div class="chat-conv-meta">
+          {% if item.last %}<span class="chat-conv-time">{{ item.last.created_at|date:"H:i" }}</span>{% endif %}
+          {% if item.unread %}<span class="chat-unread-badge">{{ item.unread }}</span>{% endif %}
+        </div>
+      </a>
+      {% empty %}
+      <div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px;line-height:1.6">
+        Нет диалогов.<br>Нажмите <strong>+</strong> чтобы начать переписку.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Empty main -->
+  <div class="chat-main">
+    <div class="chat-empty">
+      <div class="chat-empty-icon">💬</div>
+      <div>Выберите диалог или начните новый</div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleNew()">+ новый диалог</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleNew() {
+  document.getElementById('new-panel').classList.toggle('open');
+  if (document.getElementById('new-panel').classList.contains('open')) {
+    document.getElementById('user-search').focus();
+  }
+}
+function filterUsers() {
+  const q = document.getElementById('user-search').value.toLowerCase();
+  document.querySelectorAll('.chat-user-item').forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
