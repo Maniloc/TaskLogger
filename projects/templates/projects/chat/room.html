@@ -1,42 +1,33 @@
 {% extends 'projects/chat/base_chat.html' %}
-{% block title %}{{ other.username }} — Чат{% endblock %}
+{% block title %}{% if conv.is_group %}{{ conv.title|default:"Беседа" }}{% else %}{{ other.username }}{% endif %} — Чат{% endblock %}
 {% block chat_content %}
-
-<!-- emoji-mart v5 via CDN -->
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@5/dist/browser.js"></script>
 
-<div class="chat-layout" id="chat-layout">
-
-  <!-- ── Sidebar ── -->
+<div class="chat-layout">
+  <!-- Sidebar -->
   <div class="chat-sidebar">
     <div class="chat-sidebar-header">
       <span class="chat-sidebar-title">
         сообщения
-        <span id="nav-unread-badge" class="chat-unread-badge" style="margin-left:6px;{% if not total_unread %}display:none{% endif %}">{{ total_unread }}</span>
+        <span id="nav-unread-badge" class="chat-unread-badge" style="margin-left:4px;{% if not total_unread %}display:none{% endif %}">{{ total_unread }}</span>
       </span>
-      <button class="chat-new-btn" onclick="toggleNew()" title="Новый диалог">+</button>
+      <button class="chat-new-btn" onclick="toggleNew()" title="Новый чат">+</button>
     </div>
     <div class="chat-new-panel" id="new-panel">
-      <input class="chat-search" type="text" placeholder="Найти пользователя..." id="user-search" oninput="filterUsers()">
-      <div class="chat-user-list">
-        {% for u in all_users %}
-        <a href="{% url 'chat_open' u.pk %}" class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}">
-          <div class="chat-user-av">{{ u.username|first|upper }}</div>
-          <div class="chat-user-name">{% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}</div>
-        </a>
-        {% endfor %}
-      </div>
+      {% include 'projects/chat/_new_panel.html' %}
     </div>
     <div class="chat-conv-list">
       {% for item in convs_data %}
       <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %}">
-        {% if item.other.profile.avatar %}
-        <img src="{{ item.other.profile.avatar.url }}" class="chat-av" style="object-fit:cover">
+        {% if item.conv.is_group %}
+        <div class="chat-av group">👥</div>
+        {% elif item.other.profile.avatar %}
+        <img src="{{ item.other.profile.avatar.url }}" class="chat-av">
         {% else %}
         <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
         {% endif %}
         <div class="chat-conv-body">
-          <div class="chat-conv-name">{% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}</div>
+          <div class="chat-conv-name">{{ item.title }}{% if item.muted %}<span class="muted-icon">🔕</span>{% endif %}</div>
           <div class="chat-conv-preview">
             {% if item.last %}{% if item.last.file %}📎 {{ item.last.file_name|default:"файл" }}{% else %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:28 }}{% endif %}{% else %}нет сообщений{% endif %}
           </div>
@@ -50,27 +41,40 @@
     </div>
   </div>
 
-  <!-- ── Main ── -->
+  <!-- Main -->
   <div class="chat-main" id="chat-drop-zone">
+    <div id="drop-overlay"><div style="font-size:15px;font-weight:600;color:var(--accent2);text-align:center"><div style="font-size:40px;margin-bottom:8px">📎</div>Отпустите для отправки</div></div>
 
-    <!-- Drop overlay -->
-    <div id="drop-overlay" style="display:none;position:absolute;inset:0;background:rgba(91,127,255,.15);border:3px dashed var(--accent);border-radius:0 12px 12px 0;z-index:50;align-items:center;justify-content:center;pointer-events:none">
-      <div style="font-size:15px;font-weight:600;color:var(--accent2);text-align:center">
-        <div style="font-size:40px;margin-bottom:8px">📎</div>
-        Отпустите для отправки
-      </div>
-    </div>
-
+    <!-- Header -->
     <div class="chat-main-header">
-      {% if other.profile.avatar %}
-      <img src="{{ other.profile.avatar.url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      {% if conv.is_group %}
+      <div class="chat-av group" style="width:34px;height:34px;font-size:16px;flex-shrink:0">👥</div>
+      {% elif other.profile.avatar %}
+      <img src="{{ other.profile.avatar.url }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">
       {% else %}
-      <div class="chat-av" style="width:32px;height:32px;font-size:12px;{% if other.profile.avatar_color %}background:{{ other.profile.avatar_color }}{% endif %}">{{ other.profile.initials|default:other.username|first|upper }}</div>
+      <div class="chat-av" style="width:34px;height:34px;font-size:12px;flex-shrink:0;{% if other.profile.avatar_color %}background:{{ other.profile.avatar_color }}{% endif %}">{{ other.profile.initials|default:other.username|first|upper }}</div>
       {% endif %}
-      <div>
-        <div class="chat-main-name">{% if other.profile.display_name %}{{ other.profile.display_name }}{% else %}{{ other.username }}{% endif %}</div>
-        {% if other.profile.position %}<div style="font-size:12px;color:var(--text3)">{{ other.profile.position }}</div>{% endif %}
+      <div style="flex:1;min-width:0">
+        <div class="chat-main-name">
+          {% if conv.is_group %}{{ conv.title|default:"Беседа" }}
+          {% elif other.profile.display_name %}{{ other.profile.display_name }}
+          {% else %}{{ other.username }}{% endif %}
+        </div>
+        <div class="chat-main-sub" id="status-sub">
+          {% if conv.is_group %}
+            {{ group_members|length|add:1 }} участников
+          {% elif other.profile.is_online %}
+            <span class="online-dot"></span> онлайн
+          {% else %}
+            {% if other.profile.last_seen %}был(а) {{ other.profile.last_seen|date:"d.m в H:i" }}{% else %}не в сети{% endif %}
+          {% endif %}
+        </div>
       </div>
+      <!-- Mute toggle -->
+      <button id="mute-btn" onclick="toggleMute()" title="{% if is_muted %}Включить уведомления{% else %}Отключить уведомления{% endif %}"
+              class="chat-action-btn" style="{% if is_muted %}color:var(--amber){% endif %}">
+        {% if is_muted %}🔕{% else %}🔔{% endif %}
+      </button>
     </div>
 
     <!-- Messages -->
@@ -78,65 +82,63 @@
       {% for msg in messages_qs %}
       <div class="msg-row {% if msg.sender == request.user %}mine{% endif %}"
            data-id="{{ msg.pk }}" data-date="{{ msg.created_at|date:'d.m.Y' }}">
-        <div class="msg-av">{{ msg.sender.username|first|upper }}</div>
+        <div class="msg-av-wrap">
+          {% if msg.sender.profile.avatar %}<img src="{{ msg.sender.profile.avatar.url }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">
+          {% else %}<div class="msg-av-inner" style="{% if msg.sender.profile.avatar_color %}background:{{ msg.sender.profile.avatar_color }}{% endif %}">{{ msg.sender.profile.initials|default:msg.sender.username|first|upper }}</div>{% endif %}
+        </div>
         <div class="msg-bubble">
+          {% if conv.is_group and msg.sender != request.user %}
+          <div class="msg-sender-name">{{ msg.sender.profile.display_name|default:msg.sender.username }}</div>
+          {% endif %}
           {% if msg.text %}<span class="msg-text">{{ msg.text }}</span>{% endif %}
           {% if msg.file %}
             {% if msg.file_type == 'image' %}
-            <div class="msg-img-wrap" {% if msg.text %}style="margin-top:6px"{% endif %}>
-              <img src="{{ msg.file.url }}" alt="{{ msg.file_name }}" class="msg-image" onclick="openImg(this.src)">
-            </div>
+            <div {% if msg.text %}style="margin-top:6px"{% endif %}><img src="{{ msg.file.url }}" class="msg-image" onclick="openImg(this.src)"></div>
             {% else %}
             <a href="{{ msg.file.url }}" download="{{ msg.file_name }}" class="msg-file-link" {% if msg.text %}style="margin-top:6px"{% endif %}>
               <div class="msg-file-icon">{{ msg.file_name|default:"file" }}</div>
-              <div class="msg-file-info">
-                <span class="msg-file-name">{{ msg.file_name }}</span>
-                <span class="msg-file-size">{{ msg.file_size|filesizeformat }}</span>
-              </div>
+              <div><div class="msg-file-name">{{ msg.file_name }}</div><div class="msg-file-size">{{ msg.file_size|filesizeformat }}</div></div>
             </a>
             {% endif %}
           {% endif %}
         </div>
         <span class="msg-time">{{ msg.created_at|date:"H:i" }}</span>
+        <div class="msg-edit-form">
+          <textarea class="msg-edit-input" rows="1"></textarea>
+          <button class="msg-edit-save" onclick="saveEdit({{ msg.pk }}, this)">✓</button>
+          <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>
+        </div>
       </div>
       {% empty %}
       <div style="text-align:center;color:var(--text3);font-size:13px;padding:2rem">Начните переписку</div>
       {% endfor %}
     </div>
 
-    <!-- File preview bar -->
-    <div id="file-preview-bar" style="display:none;padding:8px 16px;background:var(--bg3);border-top:1px solid var(--border);align-items:center;gap:10px">
+    <!-- File preview -->
+    <div id="file-preview-bar">
       <div id="file-thumb"></div>
-      <div style="flex:1;min-width:0">
-        <div id="file-preview-name" style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-        <div id="file-preview-size" style="font-size:11px;color:var(--text3)"></div>
-      </div>
+      <div style="flex:1;min-width:0"><div id="file-preview-name" style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><div id="file-preview-size" style="font-size:11px;color:var(--text3)"></div></div>
       <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px;line-height:1">×</button>
     </div>
 
-    <!-- Emoji picker — floating overlay, not in flex flow -->
-    <div id="emoji-picker-wrap" style="display:none;position:absolute;bottom:58px;left:0;right:0;z-index:100;border-top:1px solid var(--border);box-shadow:0 -8px 32px rgba(0,0,0,.3)"></div>
+    <!-- Emoji picker -->
+    <div id="emoji-picker-wrap"></div>
 
-    <!-- Input area -->
+    <!-- Input -->
     <div class="chat-input-area">
-      <label class="chat-action-btn" title="Прикрепить файл (или перетащи / вставь из буфера)">
-        <input type="file" id="file-input" style="display:none"
-               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar"
-               onchange="onFileSelect(this)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      <label class="chat-action-btn" title="Прикрепить файл">
+        <input type="file" id="file-input" style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="onFileSelect(this)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       </label>
-      <button class="chat-action-btn" id="emoji-btn" title="Эмодзи" onclick="togglePicker()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      <button class="chat-action-btn" id="emoji-btn" onclick="togglePicker()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
       </button>
-      <textarea class="chat-input" id="msg-input" placeholder="Написать сообщение... (Ctrl+V для вставки файла)" rows="1"></textarea>
-      <button class="chat-send-btn" onclick="sendMessage()" title="Отправить (Enter)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
+      <textarea class="chat-input" id="msg-input" placeholder="Написать сообщение..." rows="1"></textarea>
+      <button class="chat-send-btn" onclick="sendMessage()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
-
-  </div><!-- /chat-main -->
+  </div>
 </div>
 
 <!-- Lightbox -->
@@ -144,234 +146,115 @@
   <img id="lightbox-img" style="max-width:92vw;max-height:92vh;border-radius:8px;object-fit:contain">
 </div>
 
-<style>
-/* chat-main styles defined in base_chat.html */
-
-.chat-action-btn {
-  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
-  background:none;border:none;color:var(--text3);cursor:pointer;border-radius:8px;
-  transition:background .12s,color .12s;flex-shrink:0;
-}
-.chat-action-btn:hover { background:var(--surface);color:var(--text); }
-
-.msg-text { white-space: pre-wrap; word-break: break-word; }
-
-.msg-image {
-  max-width:280px;max-height:240px;border-radius:10px;
-  display:block;cursor:zoom-in;object-fit:cover;transition:opacity .12s;
-}
-.msg-image:hover { opacity:.88; }
-
-.msg-file-link {
-  display:flex;align-items:center;gap:9px;padding:8px 10px;
-  background:rgba(255,255,255,.08);border-radius:8px;
-  text-decoration:none;margin-top:4px;transition:background .12s;
-}
-.msg-row.mine .msg-file-link { background:rgba(255,255,255,.15); }
-.msg-file-link:hover { background:rgba(255,255,255,.2); }
-.msg-file-icon {
-  width:36px;height:36px;border-radius:7px;background:var(--accent);
-  color:#fff;display:flex;align-items:center;justify-content:center;
-  font-size:9px;font-weight:700;text-transform:uppercase;flex-shrink:0;
-  overflow:hidden;text-overflow:ellipsis;padding:2px;text-align:center;line-height:1.2;
-}
-.msg-file-info { display:flex;flex-direction:column;min-width:0; }
-.msg-file-name { font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px; }
-.msg-row.mine .msg-file-name { color:#fff; }
-.msg-file-size { font-size:11px;color:var(--text3);margin-top:1px; }
-.msg-row.mine .msg-file-size { color:rgba(255,255,255,.6); }
-
-/* Context menu */
-.ctx-menu {
-  position: fixed;
-  background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: 10px;
-  padding: 5px;
-  min-width: 160px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.4);
-  z-index: 9998;
-  animation: ctxIn .1s ease;
-}
-@keyframes ctxIn {
-  from { opacity:0; transform: scale(.95); }
-  to   { opacity:1; transform: scale(1); }
-}
-.ctx-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 12px; border-radius: 7px;
-  font-size: 13px; color: var(--text2);
-  cursor: pointer; transition: background .1s, color .1s;
-  font-family: inherit; background: none; border: none;
-  width: 100%; text-align: left;
-}
-.ctx-item:hover { background: var(--surface); color: var(--text); }
-.ctx-item.danger { color: var(--red); }
-.ctx-item.danger:hover { background: rgba(248,113,113,.12); }
-.ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
-
-/* Inline edit form */
-.msg-row { position: relative; }
-.msg-editing .msg-bubble { display: none; }
-.msg-edit-form { display: none; flex: 1; }
-.msg-editing .msg-edit-form { display: flex; gap: 6px; align-items: flex-end; }
-.msg-edit-input {
-  flex: 1; padding: 8px 12px;
-  background: var(--bg3); border: 1px solid var(--accent);
-  border-radius: 12px; color: var(--text); font-size: 14px;
-  font-family: inherit; outline: none; resize: none; line-height: 1.45;
-}
-.msg-edit-save, .msg-edit-cancel {
-  padding: 7px 11px; border-radius: 8px; font-size: 12px;
-  border: 1px solid var(--border2); cursor: pointer; font-family: inherit;
-}
-.msg-edit-save { background: var(--accent); color: #fff; border-color: var(--accent); }
-.msg-edit-cancel { background: none; color: var(--text3); }
-
-/* emoji-mart theme override */
-#emoji-picker-wrap em-emoji-picker {
-  --background-rgb: var(--bg3);
-  --border-radius: 0;
-  --shadow: none;
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 380px !important;
-  max-height: 380px !important;
-}
-</style>
+<!-- Context menu -->
+<div id="ctx-menu" class="ctx-menu" style="display:none"></div>
 
 <script>
-const CONV_ID  = {{ conv.pk }};
-const ME_ID    = {{ request.user.pk }};
-const SEND_URL = '{% url "chat_send" conv.pk %}';
-const POLL_URL = '{% url "chat_poll" conv.pk %}';
-const CSRF     = '{{ csrf_token }}';
+const CONV_ID   = {{ conv.pk }};
+const ME_ID     = {{ request.user.pk }};
+const IS_GROUP  = {{ conv.is_group|lower }};
+const SEND_URL  = '{% url "chat_send" conv.pk %}';
+const POLL_URL  = '{% url "chat_poll" conv.pk %}';
+const MUTE_URL  = '{% url "chat_mute" conv.pk %}';
+const CSRF      = '{{ csrf_token }}';
 
-let lastId = {% if messages_qs.exists %}{{ messages_qs.last.pk }}{% else %}0{% endif %};
+let lastId  = {% if messages_qs.exists %}{{ messages_qs.last.pk }}{% else %}0{% endif %};
 let lastDate = null;
 let pendingFile = null;
 let pickerReady = false;
+let isMuted = {{ is_muted|lower }};
 
-// ══════════════════════════════════
-// emoji-mart picker
-// ══════════════════════════════════
+// ── Sound notification ──
+let audioCtx = null;
+function playNotif() {
+  if (isMuted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+// ── Mute toggle ──
+async function toggleMute() {
+  const res = await fetch(MUTE_URL, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+  if (res.ok) {
+    const d = await res.json();
+    isMuted = d.is_muted;
+    const btn = document.getElementById('mute-btn');
+    btn.textContent = isMuted ? '🔕' : '🔔';
+    btn.style.color = isMuted ? 'var(--amber)' : '';
+    btn.title = isMuted ? 'Включить уведомления' : 'Отключить уведомления';
+  }
+}
+
+// ── Emoji picker ──
 function togglePicker() {
   const wrap = document.getElementById('emoji-picker-wrap');
-  const showing = wrap.style.display === 'block';
-  if (showing) {
-    wrap.style.display = 'none';
-    return;
-  }
+  if (wrap.style.display === 'block') { wrap.style.display = 'none'; return; }
   if (!pickerReady) {
     const isDark = !document.documentElement.getAttribute('data-theme').startsWith('light');
     const picker = new EmojiMart.Picker({
-      theme: isDark ? 'dark' : 'light',
-      locale: 'ru',
-      previewPosition: 'none',
-      skinTonePosition: 'none',
+      theme: isDark ? 'dark' : 'light', locale: 'ru', previewPosition: 'none', skinTonePosition: 'none',
       onEmojiSelect: (emoji) => {
-        const input = document.getElementById('msg-input');
-        const pos = input.selectionStart;
-        const val = input.value;
-        input.value = val.slice(0, pos) + emoji.native + val.slice(pos);
-        input.selectionStart = input.selectionEnd = pos + emoji.native.length;
-        input.focus();
-        input.dispatchEvent(new Event('input'));
+        const inp = document.getElementById('msg-input');
+        const p = inp.selectionStart, v = inp.value;
+        inp.value = v.slice(0,p) + emoji.native + v.slice(p);
+        inp.selectionStart = inp.selectionEnd = p + emoji.native.length;
+        inp.focus(); inp.dispatchEvent(new Event('input'));
       },
     });
-    wrap.appendChild(picker);
-    pickerReady = true;
+    wrap.appendChild(picker); pickerReady = true;
   }
   wrap.style.display = 'block';
 }
-
-// Close picker on outside click
 document.addEventListener('click', e => {
-  const wrap = document.getElementById('emoji-picker-wrap');
-  const btn  = document.getElementById('emoji-btn');
-  if (wrap.style.display === 'block' && !wrap.contains(e.target) && !btn.contains(e.target)) {
-    wrap.style.display = 'none';
-  }
+  const w = document.getElementById('emoji-picker-wrap'), b = document.getElementById('emoji-btn');
+  if (w.style.display==='block' && !w.contains(e.target) && !b.contains(e.target)) w.style.display='none';
 });
 
-// ══════════════════════════════════
-// File handling
-// ══════════════════════════════════
-const MAX_SIZE = 10 * 1024 * 1024;
-
-function onFileSelect(input) {
-  if (input.files[0]) applyFile(input.files[0]);
-}
-
+// ── File handling ──
+function onFileSelect(el) { if (el.files[0]) applyFile(el.files[0]); }
 function applyFile(file) {
-  if (file.size > MAX_SIZE) { alert('Файл слишком большой. Максимум 10 МБ.'); return; }
+  if (file.size > 10*1024*1024) { alert('Файл слишком большой (макс. 10 МБ)'); return; }
   pendingFile = file;
   const bar = document.getElementById('file-preview-bar');
   bar.style.display = 'flex';
   document.getElementById('file-preview-name').textContent = file.name;
-  document.getElementById('file-preview-size').textContent = formatSize(file.size);
-  const thumb = document.getElementById('file-thumb');
+  document.getElementById('file-preview-size').textContent = fmtSize(file.size);
+  const t = document.getElementById('file-thumb');
   if (file.type.startsWith('image/')) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      thumb.innerHTML = `<img src="${e.target.result}" style="width:44px;height:44px;border-radius:6px;object-fit:cover">`;
-    };
-    reader.readAsDataURL(file);
+    const r = new FileReader(); r.onload = e => t.innerHTML = `<img src="${e.target.result}" style="width:44px;height:44px;border-radius:6px;object-fit:cover">`;
+    r.readAsDataURL(file);
   } else {
-    const ext = file.name.split('.').pop().toUpperCase().slice(0, 5);
-    thumb.innerHTML = `<div style="width:44px;height:44px;border-radius:6px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${ext}</div>`;
+    const ext = file.name.split('.').pop().toUpperCase().slice(0,5);
+    t.innerHTML = `<div style="width:44px;height:44px;border-radius:6px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${ext}</div>`;
   }
 }
+function clearFile() { pendingFile=null; document.getElementById('file-input').value=''; document.getElementById('file-preview-bar').style.display='none'; document.getElementById('file-thumb').innerHTML=''; }
+function fmtSize(b) { if(b<1024)return b+' Б'; if(b<1048576)return(b/1024).toFixed(1)+' КБ'; return(b/1048576).toFixed(1)+' МБ'; }
 
-function clearFile() {
-  pendingFile = null;
-  document.getElementById('file-input').value = '';
-  document.getElementById('file-preview-bar').style.display = 'none';
-  document.getElementById('file-thumb').innerHTML = '';
-}
-
-function formatSize(b) {
-  if (b < 1024) return b + ' Б';
-  if (b < 1048576) return (b/1024).toFixed(1) + ' КБ';
-  return (b/1048576).toFixed(1) + ' МБ';
-}
-
-// ══════════════════════════════════
-// Paste from clipboard (Ctrl+V)
-// ══════════════════════════════════
+// Paste
 document.addEventListener('paste', e => {
-  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-  for (const item of items) {
-    if (item.kind === 'file') {
-      e.preventDefault();
-      applyFile(item.getAsFile());
-      return;
-    }
+  for (const item of (e.clipboardData||e.originalEvent.clipboardData).items) {
+    if (item.kind==='file') { e.preventDefault(); applyFile(item.getAsFile()); return; }
   }
-  // plain text paste goes to textarea normally
 });
 
-// ══════════════════════════════════
-// Drag & drop onto chat area
-// ══════════════════════════════════
-const dropZone = document.getElementById('chat-drop-zone');
-const overlay  = document.getElementById('drop-overlay');
+// Drag & drop
+const dz = document.getElementById('chat-drop-zone'), ov = document.getElementById('drop-overlay');
+dz.addEventListener('dragenter', e => { e.preventDefault(); ov.style.display='flex'; });
+dz.addEventListener('dragover',  e => { e.preventDefault(); ov.style.display='flex'; });
+dz.addEventListener('dragleave', e => { if(!dz.contains(e.relatedTarget)) ov.style.display='none'; });
+dz.addEventListener('drop', e => { e.preventDefault(); ov.style.display='none'; if(e.dataTransfer.files[0]) applyFile(e.dataTransfer.files[0]); });
 
-dropZone.addEventListener('dragenter', e => { e.preventDefault(); overlay.style.display = 'flex'; });
-dropZone.addEventListener('dragover',  e => { e.preventDefault(); overlay.style.display = 'flex'; });
-dropZone.addEventListener('dragleave', e => {
-  if (!dropZone.contains(e.relatedTarget)) overlay.style.display = 'none';
-});
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  overlay.style.display = 'none';
-  const file = e.dataTransfer.files[0];
-  if (file) applyFile(file);
-});
-
-// ══════════════════════════════════
-// Send message
-// ══════════════════════════════════
+// ── Send ──
 async function sendMessage() {
   const text = document.getElementById('msg-input').value.trim();
   if (!text && !pendingFile) return;
@@ -380,332 +263,148 @@ async function sendMessage() {
   document.getElementById('msg-input').style.height = 'auto';
   clearFile();
   document.getElementById('emoji-picker-wrap').style.display = 'none';
-  await doSend(text, file);
-}
-
-async function doSend(text, file) {
   let res;
   if (file) {
-    const fd = new FormData();
-    if (text) fd.append('text', text);
-    fd.append('file', file);
+    const fd = new FormData(); if(text) fd.append('text',text); fd.append('file',file);
     res = await fetch(SEND_URL, { method:'POST', headers:{'X-CSRFToken':CSRF}, body:fd });
   } else {
-    res = await fetch(SEND_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
-      body: JSON.stringify({text}),
-    });
+    res = await fetch(SEND_URL, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({text}) });
   }
-  if (res.ok) {
-    const m = await res.json();
-    m.mine = true;
-    renderMsg(m);
-    lastId = m.id;
-    scrollBottom(true);
-  } else {
-    const err = await res.json().catch(() => ({}));
-    if (err.error) alert(err.error);
-  }
+  if (res.ok) { const m=await res.json(); m.mine=true; renderMsg(m); lastId=m.id; scrollBottom(true); }
+  else { const e=await res.json().catch(()=>{}); if(e&&e.error) alert(e.error); }
 }
 
-// ══════════════════════════════════
-// Render message
-// ══════════════════════════════════
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-function renderFileBlock(f, mine) {
-  if (f.type === 'image') {
-    return `<div class="msg-img-wrap" style="margin-top:4px">
-      <img src="${f.url}" alt="${escHtml(f.name)}" class="msg-image" onclick="openImg(this.src)">
-    </div>`;
-  }
-  const ext = f.name.split('.').pop().toUpperCase().slice(0,5);
-  return `<a href="${f.url}" download="${escHtml(f.name)}" class="msg-file-link" style="margin-top:4px">
-    <div class="msg-file-icon">${ext}</div>
-    <div class="msg-file-info">
-      <span class="msg-file-name">${escHtml(f.name)}</span>
-      <span class="msg-file-size">${formatSize(f.size)}</span>
-    </div>
-  </a>`;
+// ── Render ──
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function renderFileBlock(f) {
+  if (f.type==='image') return `<div style="margin-top:4px"><img src="${f.url}" class="msg-image" onclick="openImg(this.src)"></div>`;
+  const ext=f.name.split('.').pop().toUpperCase().slice(0,5);
+  return `<a href="${f.url}" download="${esc(f.name)}" class="msg-file-link" style="margin-top:4px"><div class="msg-file-icon">${ext}</div><div><div class="msg-file-name">${esc(f.name)}</div><div class="msg-file-size">${fmtSize(f.size)}</div></div></a>`;
 }
 
 function renderMsg(m) {
   const msgs = document.getElementById('messages');
   if (m.date !== lastDate) {
     lastDate = m.date;
-    const sep = document.createElement('div');
-    sep.className = 'chat-day-sep';
-    sep.innerHTML = `<span>${m.date}</span>`;
+    const sep = document.createElement('div'); sep.className='chat-day-sep'; sep.innerHTML=`<span>${m.date}</span>`;
     msgs.appendChild(sep);
   }
   const row = document.createElement('div');
   row.className = 'msg-row' + (m.mine ? ' mine' : '');
-  row.dataset.id = m.id;
-  row.dataset.date = m.date;
-  let content = m.text ? `<span class="msg-text">${escHtml(m.text)}</span>` : '';
-  if (m.file) content += renderFileBlock(m.file, m.mine);
-  row.innerHTML = `
-    <div class="msg-av">${m.sender[0].toUpperCase()}</div>
-    <div class="msg-bubble">${content}</div>
-    <span class="msg-time">${m.created_at}</span>
-    <div class="msg-edit-form">
-      <textarea class="msg-edit-input" rows="1"></textarea>
-      <button class="msg-edit-save" onclick="saveEdit(${m.id}, this)">✓</button>
-      <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>
-    </div>
-  `;
+  row.dataset.id = m.id; row.dataset.date = m.date;
+
+  let avHtml = `<div class="msg-av-inner">${(m.sender_display||m.sender)[0].toUpperCase()}</div>`;
+  let content = m.text ? `<span class="msg-text">${esc(m.text)}</span>` : '';
+  if (IS_GROUP && !m.mine) content = `<div class="msg-sender-name">${esc(m.sender_display||m.sender)}</div>` + content;
+  if (m.file) content += renderFileBlock(m.file);
+
+  row.innerHTML = `<div class="msg-av-wrap">${avHtml}</div><div class="msg-bubble">${content}</div><span class="msg-time">${m.created_at}</span><div class="msg-edit-form"><textarea class="msg-edit-input" rows="1"></textarea><button class="msg-edit-save" onclick="saveEdit(${m.id},this)">✓</button><button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button></div>`;
   row.addEventListener('contextmenu', e => showCtx(e, m.id, m.mine));
   msgs.appendChild(row);
 }
 
-// ══════════════════════════════════
-// Lightbox
-// ══════════════════════════════════
-function openImg(src) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').style.display = 'flex';
-}
-
-// ══════════════════════════════════
-// Textarea auto-resize + keyboard
-// ══════════════════════════════════
-const input = document.getElementById('msg-input');
-input.addEventListener('input', () => {
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-});
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-
-// ══════════════════════════════════
-// Scroll helpers
-// ══════════════════════════════════
-function scrollBottom(smooth) {
-  const el = document.getElementById('messages');
-  el.scrollTo({top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto'});
-}
-function isNearBottom() {
-  const el = document.getElementById('messages');
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-}
+// ── Scroll ──
+function scrollBottom(s) { const el=document.getElementById('messages'); el.scrollTo({top:el.scrollHeight,behavior:s?'smooth':'auto'}); }
+function isNearBottom() { const el=document.getElementById('messages'); return el.scrollHeight-el.scrollTop-el.clientHeight<80; }
 scrollBottom(false);
 
-// ══════════════════════════════════
-// Day separators for existing msgs
-// ══════════════════════════════════
+// Day seps for existing messages
 document.querySelectorAll('.msg-row').forEach(row => {
-  const d = row.dataset.date;
-  if (d !== lastDate) {
-    const sep = document.createElement('div');
-    sep.className = 'chat-day-sep';
-    sep.innerHTML = `<span>${d}</span>`;
-    row.before(sep);
-    lastDate = d;
+  const d=row.dataset.date; if(d!==lastDate){ const s=document.createElement('div'); s.className='chat-day-sep'; s.innerHTML=`<span>${d}</span>`; row.before(s); lastDate=d; }
+  row.addEventListener('contextmenu', e => showCtx(e, +row.dataset.id, row.classList.contains('mine')));
+  if (row.classList.contains('mine') && !row.querySelector('.msg-edit-form')) {
+    const ef=document.createElement('div'); ef.className='msg-edit-form';
+    ef.innerHTML=`<textarea class="msg-edit-input" rows="1"></textarea><button class="msg-edit-save" onclick="saveEdit(${row.dataset.id},this)">✓</button><button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>`;
+    row.appendChild(ef);
   }
 });
 
-// ══════════════════════════════════
-// Polling
-// ══════════════════════════════════
+// Textarea
+const inp=document.getElementById('msg-input');
+inp.addEventListener('input',()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,120)+'px'; });
+inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} });
+
 // ── Context menu ──
-let ctxMenu = null;
+let ctxMenu=null;
+function showCtx(e,msgId,isMine) {
+  e.preventDefault(); if(ctxMenu){ctxMenu.remove();ctxMenu=null;}
+  const row=e.currentTarget, bubble=row.querySelector('.msg-bubble'), textEl=bubble&&bubble.querySelector('.msg-text');
+  const menu=document.getElementById('ctx-menu'); menu.innerHTML=''; menu.style.display='block';
+  const add=(label,icon,fn,danger=false)=>{ const b=document.createElement('button'); b.className='ctx-item'+(danger?' danger':''); b.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg>${label}`; b.onclick=()=>{menu.style.display='none';fn();}; menu.appendChild(b); };
+  if(textEl&&textEl.textContent.trim()) add('Копировать','<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',()=>copyMsg(msgId));
+  if(isMine){ const sep=document.createElement('div'); sep.className='ctx-sep'; menu.appendChild(sep); if(textEl&&textEl.textContent.trim()) add('Редактировать','<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',()=>startEdit(msgId)); add('Удалить','<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',()=>deleteMsg(msgId),true); }
+  const mw=menu.offsetWidth,mh=menu.offsetHeight; const x=Math.min(e.clientX,window.innerWidth-mw-8),y=Math.min(e.clientY,window.innerHeight-mh-8); menu.style.left=x+'px'; menu.style.top=y+'px'; ctxMenu=menu;
+}
+document.addEventListener('click',()=>{ if(ctxMenu){ctxMenu.style.display='none';} });
 
-function showCtx(e, msgId, isMine) {
-  e.preventDefault();
-  closeCtx();
+function copyMsg(id) { const t=document.querySelector(`.msg-row[data-id="${id}"] .msg-text`); if(t) navigator.clipboard.writeText(t.textContent).catch(()=>{}); }
+function startEdit(id) { const row=document.querySelector(`.msg-row[data-id="${id}"]`); if(!row)return; const t=row.querySelector('.msg-text'),ef=row.querySelector('.msg-edit-form'),inp=ef.querySelector('.msg-edit-input'); inp.value=t?t.textContent:''; row.classList.add('msg-editing'); inp.focus(); inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,120)+'px'; inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveEdit(id,inp);}if(e.key==='Escape')cancelEdit(inp);}; inp.oninput=()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,120)+'px';}; }
+function cancelEdit(el){el.closest('.msg-row').classList.remove('msg-editing');}
+async function saveEdit(id,el){const row=el.closest('.msg-row'),inp=row.querySelector('.msg-edit-input'),text=inp.value.trim();if(!text)return;const r=await fetch(`/chat/msg/${id}/edit/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({text})});if(r.ok){const t=row.querySelector('.msg-text');if(t)t.innerHTML=esc(text);row.classList.remove('msg-editing');}}
+async function deleteMsg(id){if(!confirm('Удалить сообщение?'))return;const r=await fetch(`/chat/msg/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}});if(r.ok){const row=document.querySelector(`.msg-row[data-id="${id}"]`);if(row){row.style.transition='opacity .2s,transform .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(()=>row.remove(),200);}}}
 
-  const row = e.currentTarget;
-  const bubble = row.querySelector('.msg-bubble');
-  const textEl = bubble ? bubble.querySelector('.msg-text') : null;
-  const hasText = textEl && textEl.textContent.trim();
-
-  const menu = document.createElement('div');
-  menu.className = 'ctx-menu';
-  menu.id = 'ctx-menu';
-
-  // Copy — always available
-  menu.innerHTML += `<button class="ctx-item" onclick="copyMsg(${msgId})">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-    Копировать
-  </button>`;
-
-  if (isMine) {
-    menu.innerHTML += `<div class="ctx-sep"></div>`;
-    if (hasText) {
-      menu.innerHTML += `<button class="ctx-item" onclick="startEdit(${msgId})">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Редактировать
-      </button>`;
-    }
-    menu.innerHTML += `<button class="ctx-item danger" onclick="deleteMsg(${msgId})">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-      Удалить
-    </button>`;
-  }
-
-  // Position menu near cursor, keep inside viewport
-  document.body.appendChild(menu);
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
-  const x = Math.min(e.clientX, window.innerWidth  - mw - 8);
-  const y = Math.min(e.clientY, window.innerHeight - mh - 8);
-  menu.style.left = x + 'px';
-  menu.style.top  = y + 'px';
-  ctxMenu = menu;
-
-  // Store msgId on menu for helpers
-  menu.dataset.msgId = msgId;
+// ── Online status display ──
+function updateOnlineUI(onlineMap) {
+  {% if not conv.is_group and other %}
+  const isOn = onlineMap[{{ other.pk }}];
+  const sub = document.getElementById('status-sub');
+  if (sub) sub.innerHTML = isOn ? '<span class="online-dot"></span> онлайн' : 'не в сети';
+  {% endif %}
 }
 
-function closeCtx() {
-  if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; }
-}
-
-document.addEventListener('click',      closeCtx);
-document.addEventListener('scroll',     closeCtx, true);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
-
-// ── Copy ──
-function copyMsg(msgId) {
-  closeCtx();
-  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
-  const textEl = row && row.querySelector('.msg-text');
-  const text = textEl ? textEl.textContent : '';
-  if (text) navigator.clipboard.writeText(text).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy'); ta.remove();
-  });
-}
-
-// ── Edit ──
-function startEdit(msgId) {
-  closeCtx();
-  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
-  if (!row) return;
-  const textEl = row.querySelector('.msg-text');
-  const editForm = row.querySelector('.msg-edit-form');
-  const input = editForm.querySelector('.msg-edit-input');
-  input.value = textEl ? textEl.textContent : '';
-  row.classList.add('msg-editing');
-  input.focus();
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-  input.onkeydown = e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(msgId, input); }
-    if (e.key === 'Escape') cancelEdit(input);
-  };
-  input.oninput = () => {
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-  };
-}
-
-function cancelEdit(el) {
-  el.closest('.msg-row').classList.remove('msg-editing');
-}
-
-async function saveEdit(msgId, el) {
-  const row = el.closest('.msg-row');
-  const input = row.querySelector('.msg-edit-input');
-  const text = input.value.trim();
-  if (!text) return;
-  const res = await fetch(`/chat/msg/${msgId}/edit/`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-    body: JSON.stringify({text}),
-  });
-  if (res.ok) {
-    const textEl = row.querySelector('.msg-text');
-    if (textEl) textEl.innerHTML = escHtml(text);
-    row.classList.remove('msg-editing');
-  }
-}
-
-// ── Delete ──
-async function deleteMsg(msgId) {
-  closeCtx();
-  if (!confirm('Удалить сообщение?')) return;
-  const res = await fetch(`/chat/msg/${msgId}/delete/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF},
-  });
-  if (res.ok) {
-    const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
-    if (row) {
-      row.style.transition = 'opacity .2s, transform .2s';
-      row.style.opacity = '0'; row.style.transform = 'scale(.95)';
-      setTimeout(() => row.remove(), 200);
-    }
-  }
-}
-
-// Add context menu to server-rendered messages
-document.querySelectorAll('.msg-row').forEach(row => {
-  const msgId = row.dataset.id;
-  const isMine = row.classList.contains('mine');
-  row.addEventListener('contextmenu', e => showCtx(e, +msgId, isMine));
-  // Add edit form placeholder for own messages
-  if (isMine && !row.querySelector('.msg-edit-form')) {
-    const editForm = document.createElement('div');
-    editForm.className = 'msg-edit-form';
-    editForm.innerHTML = `
-      <textarea class="msg-edit-input" rows="1"></textarea>
-      <button class="msg-edit-save" onclick="saveEdit(${msgId}, this)">✓</button>
-      <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>`;
-    row.appendChild(editForm);
-  }
-});
-
+// ── Poll ──
 async function poll() {
   try {
-    const res = await fetch(`${POLL_URL}?since=${lastId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    const wasBottom = isNearBottom();
-    data.messages.forEach(m => {
-      if (m.id > lastId) { renderMsg(m); lastId = m.id; }
-    });
-    if (wasBottom && data.messages.length) scrollBottom(true);
+    const res=await fetch(`${POLL_URL}?since=${lastId}`);
+    if(!res.ok)return;
+    const data=await res.json();
+    const wasBottom=isNearBottom();
+    let hasNew=false;
+    data.messages.forEach(m=>{if(m.id>lastId){renderMsg(m);lastId=m.id;if(!m.mine)hasNew=true;}});
+    if(wasBottom&&data.messages.length)scrollBottom(true);
+    if(hasNew)playNotif();
     updateNavBadge(data.total_unread);
-  } catch(e) {}
-  setTimeout(poll, 2000);
+    if(data.online)updateOnlineUI(data.online);
+    isMuted=data.is_muted;
+  } catch(e){}
+  setTimeout(poll,2000);
 }
 
-function updateNavBadge(count) {
-  const b = document.getElementById('nav-unread-badge');
-  if (b) { b.textContent = count; b.style.display = count > 0 ? '' : 'none'; }
-  document.querySelectorAll('.nav-chat-badge').forEach(el => {
-    el.textContent = count; el.style.display = count > 0 ? '' : 'none';
-  });
-}
+function updateNavBadge(n){const b=document.getElementById('nav-unread-badge');if(b){b.textContent=n;b.style.display=n>0?'':'none';}document.querySelectorAll('.nav-chat-badge').forEach(el=>{el.textContent=n;el.style.display=n>0?'':'none';});}
 
-// ══════════════════════════════════
+// Lightbox
+function openImg(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').style.display='flex';}
+
 // Sidebar helpers
-// ══════════════════════════════════
-function toggleNew() {
-  document.getElementById('new-panel').classList.toggle('open');
-  if (document.getElementById('new-panel').classList.contains('open'))
-    document.getElementById('user-search').focus();
+function toggleNew(){document.getElementById('new-panel').classList.toggle('open');if(document.getElementById('new-panel').classList.contains('open')){const s=document.getElementById('user-search');if(s)s.focus();}}
+function filterUsers(){const q=document.getElementById('user-search').value.toLowerCase();document.querySelectorAll('.chat-user-item').forEach(el=>el.style.display=el.dataset.name.includes(q)?'':'none');}
+
+// DM/Group mode selector
+let chatMode='dm', selectedUsers=new Set();
+function setMode(m){
+  chatMode=m;
+  document.getElementById('mode-dm').className='btn btn-sm'+(m==='dm'?' btn-primary':' btn-ghost');
+  document.getElementById('mode-group').className='btn btn-sm'+(m==='group'?' btn-primary':' btn-ghost');
+  document.getElementById('group-title-row').style.display=m==='group'?'block':'none';
+  document.getElementById('start-group-btn').style.display=m==='group'&&selectedUsers.size>0?'block':'none';
+  selectedUsers.clear(); document.querySelectorAll('.chat-user-item').forEach(el=>{el.style.background='';document.getElementById('sel-'+el.dataset.uid).style.display='none';});
 }
-function filterUsers() {
-  const q = document.getElementById('user-search').value.toLowerCase();
-  document.querySelectorAll('.chat-user-item').forEach(el => {
-    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
-  });
+function selectUser(el, uid){
+  if(chatMode==='dm'){window.location.href='/chat/open/'+uid+'/';}
+  else{
+    if(selectedUsers.has(uid)){selectedUsers.delete(uid);el.style.background='';document.getElementById('sel-'+uid).style.display='none';}
+    else{selectedUsers.add(uid);el.style.background='var(--accent-bg)';document.getElementById('sel-'+uid).style.display='block';}
+    document.getElementById('start-group-btn').style.display=selectedUsers.size>0?'block':'none';
+  }
+}
+async function startGroup(){
+  const title=document.getElementById('group-title').value.trim()||'Беседа';
+  const res=await fetch('/chat/group/create/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({title,user_ids:[...selectedUsers]})});
+  if(res.ok){const d=await res.json();window.location.href='/chat/'+d.conv_id+'/';}
+  else alert('Ошибка при создании беседы');
 }
 
-// Escape closes everything
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.getElementById('lightbox').style.display = 'none';
-    document.getElementById('emoji-picker-wrap').style.display = 'none';
-    document.getElementById('new-panel').classList.remove('open');
-    overlay.style.display = 'none';
-  }
-});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.getElementById('lightbox').style.display='none';document.getElementById('emoji-picker-wrap').style.display='none';document.getElementById('new-panel').classList.remove('open');ov.style.display='none';}});
 
 poll();
 </script>

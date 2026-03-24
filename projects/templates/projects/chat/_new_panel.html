@@ -1,0 +1,32 @@
+<div style="margin-bottom:8px">
+  <div style="display:flex;gap:5px;margin-bottom:8px">
+    <button onclick="setMode('dm')" id="mode-dm" class="btn btn-primary btn-sm" style="flex:1;justify-content:center;font-size:12px">личное</button>
+    <button onclick="setMode('group')" id="mode-group" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;font-size:12px">беседа</button>
+  </div>
+  <div id="group-title-row" style="display:none;margin-bottom:6px">
+    <input class="chat-search" type="text" id="group-title" placeholder="Название беседы...">
+  </div>
+  <input class="chat-search" type="text" placeholder="Найти пользователя..." id="user-search" oninput="filterUsers()">
+  <div class="chat-user-list" id="user-list">
+    {% for u in all_users %}
+    <div class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}" data-uid="{{ u.pk }}" onclick="selectUser(this, {{ u.pk }})">
+      <div style="position:relative;flex-shrink:0">
+        {% if u.profile.avatar %}
+        <img src="{{ u.profile.avatar.url }}" class="chat-user-av" style="object-fit:cover">
+        {% else %}
+        <div class="chat-user-av" style="{% if u.profile.avatar_color %}background:{{ u.profile.avatar_color }}{% endif %}">{{ u.profile.initials|default:u.username|first|upper }}</div>
+        {% endif %}
+        <span id="online-{{ u.pk }}" style="display:none;position:absolute;bottom:0;right:0;width:8px;height:8px;border-radius:50%;background:var(--green);border:2px solid var(--bg3)"></span>
+      </div>
+      <div class="chat-user-name">
+        {% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}
+        <span style="font-size:11px;color:var(--text3)"> @{{ u.username }}</span>
+      </div>
+      <div id="sel-{{ u.pk }}" style="display:none;color:var(--accent);font-size:16px;margin-left:auto">✓</div>
+    </div>
+    {% empty %}
+    <div style="font-size:12px;color:var(--text3);padding:8px">Нет других пользователей</div>
+    {% endfor %}
+  </div>
+  <button id="start-group-btn" style="display:none;margin-top:8px;width:100%" class="btn btn-primary btn-sm" onclick="startGroup()">Создать беседу</button>
+</div>

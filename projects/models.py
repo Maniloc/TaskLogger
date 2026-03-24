@@ -112,6 +112,15 @@ class UserProfile(models.Model):
     department = models.CharField('Отдел',      max_length=200, blank=True)
     avatar     = models.ImageField('Аватар', upload_to='avatars/', null=True, blank=True)
     avatar_color = models.CharField('Цвет аватара', max_length=7, blank=True, default='')
+    last_seen    = models.DateTimeField('Последний визит', null=True, blank=True)
+
+    @property
+    def is_online(self):
+        """Online if seen in last 5 minutes."""
+        if not self.last_seen:
+            return False
+        from django.utils import timezone
+        return (timezone.now() - self.last_seen).total_seconds() < 300
 
     class Meta:
         verbose_name = 'Профиль'
@@ -151,6 +160,13 @@ class Conversation(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    title      = models.CharField('Название беседы', max_length=100, blank=True)
+    is_group   = models.BooleanField('Групповой чат', default=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_conversations', verbose_name='Создатель'
+    )
+
     class Meta:
         verbose_name = 'Диалог'
         verbose_name_plural = 'Диалоги'
@@ -161,7 +177,22 @@ class Conversation(models.Model):
         return f'Диалог: {names}'
 
     def other_participant(self, user):
+        """For DMs returns the other user; for groups returns None."""
+        if self.is_group:
+            return None
         return self.participants.exclude(pk=user.pk).first()
+
+    def display_title(self, user):
+        """Human-readable title for sidebar."""
+        if self.is_group:
+            return self.title or 'Беседа'
+        other = self.other_participant(user)
+        if other:
+            try:
+                return other.profile.display_name or other.username
+            except Exception:
+                return other.username
+        return 'Диалог'
 
     def last_message(self):
         return self.messages.order_by('-created_at').first()
@@ -193,6 +224,19 @@ class Message(models.Model):
 
     def __str__(self):
         return f'{self.sender.username}: {self.text[:40]}'
+
+
+class ConversationSettings(models.Model):
+    user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversation_settings')
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='settings')
+    is_muted     = models.BooleanField('Уведомления отключены', default=False)
+
+    class Meta:
+        unique_together = ('user', 'conversation')
+        verbose_name = 'Настройки беседы'
+
+    def __str__(self):
+        return f'{self.user.username} / {self.conversation_id} muted={self.is_muted}'
 
 
 class InviteToken(models.Model):
