@@ -4,7 +4,7 @@
 
 <div class="chat-layout">
 
-  <!-- Sidebar -->
+  <!-- ── Sidebar ── -->
   <div class="chat-sidebar">
     <div class="chat-sidebar-header">
       <span class="chat-sidebar-title">
@@ -13,222 +13,371 @@
       </span>
       <button class="chat-new-btn" onclick="toggleNew()" title="Новый диалог">+</button>
     </div>
-
     <div class="chat-new-panel" id="new-panel">
       <input class="chat-search" type="text" placeholder="Найти пользователя..." id="user-search" oninput="filterUsers()">
       <div class="chat-user-list" id="user-list">
         {% for u in all_users %}
         <a href="{% url 'chat_open' u.pk %}" class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}">
           <div class="chat-user-av">{{ u.username|first|upper }}</div>
-          <div class="chat-user-name">
-            {% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}
-          </div>
+          <div class="chat-user-name">{% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}</div>
         </a>
         {% endfor %}
       </div>
     </div>
-
     <div class="chat-conv-list">
       {% for item in convs_data %}
       <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %}">
         <div class="chat-av">{{ item.other.username|first|upper }}</div>
         <div class="chat-conv-body">
-          <div class="chat-conv-name">
-            {% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}
-          </div>
+          <div class="chat-conv-name">{% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}</div>
           <div class="chat-conv-preview">
-            {% if item.last %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:30 }}{% else %}нет сообщений{% endif %}
+            {% if item.last %}
+              {% if item.last.file %}📎 {{ item.last.file_name|default:"файл" }}
+              {% else %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:28 }}
+              {% endif %}
+            {% else %}нет сообщений{% endif %}
           </div>
         </div>
         <div class="chat-conv-meta">
           {% if item.last %}<span class="chat-conv-time">{{ item.last.created_at|date:"H:i" }}</span>{% endif %}
-          {% if item.unread %}<span class="chat-unread-badge" id="badge-{{ item.conv.pk }}">{{ item.unread }}</span>{% endif %}
+          {% if item.unread %}<span class="chat-unread-badge">{{ item.unread }}</span>{% endif %}
         </div>
       </a>
       {% endfor %}
     </div>
   </div>
 
-  <!-- Chat room -->
+  <!-- ── Main ── -->
   <div class="chat-main">
     <div class="chat-main-header">
       <div class="chat-av" style="width:32px;height:32px;font-size:12px">{{ other.username|first|upper }}</div>
       <div>
-        <div class="chat-main-name">
-          {% if other.profile.display_name %}{{ other.profile.display_name }}{% else %}{{ other.username }}{% endif %}
-        </div>
+        <div class="chat-main-name">{% if other.profile.display_name %}{{ other.profile.display_name }}{% else %}{{ other.username }}{% endif %}</div>
         {% if other.profile.position %}<div style="font-size:12px;color:var(--text3)">{{ other.profile.position }}</div>{% endif %}
       </div>
     </div>
 
+    <!-- Messages -->
     <div class="chat-messages" id="messages">
       {% for msg in messages_qs %}
-      {% if forloop.first or msg.created_at|date:"d.m.Y" != messages_qs|last|date:"d.m.Y" %}
-      {% endif %}
-      <div class="msg-row {% if msg.sender == request.user %}mine{% endif %}" data-id="{{ msg.pk }}" data-date="{{ msg.created_at|date:'d.m.Y' }}">
+      <div class="msg-row {% if msg.sender == request.user %}mine{% endif %}"
+           data-id="{{ msg.pk }}" data-date="{{ msg.created_at|date:'d.m.Y' }}">
         <div class="msg-av">{{ msg.sender.username|first|upper }}</div>
-        <div class="msg-bubble">{{ msg.text }}</div>
+        <div class="msg-bubble">
+          {% if msg.text %}{{ msg.text }}{% endif %}
+          {% if msg.file %}
+            {% if msg.file_type == 'image' %}
+            <div class="msg-img-wrap" style="{% if msg.text %}margin-top:6px{% endif %}">
+              <img src="{{ msg.file.url }}" alt="{{ msg.file_name }}" class="msg-image" onclick="openImg(this.src)">
+            </div>
+            {% else %}
+            <a href="{{ msg.file.url }}" download="{{ msg.file_name }}" class="msg-file-link" style="{% if msg.text %}margin-top:6px{% endif %}">
+              <span class="msg-file-icon">{{ msg.file_type|default:"file" }}</span>
+              <span class="msg-file-info">
+                <span class="msg-file-name">{{ msg.file_name }}</span>
+                <span class="msg-file-size">{{ msg.file_size|filesizeformat }}</span>
+              </span>
+            </a>
+            {% endif %}
+          {% endif %}
+        </div>
         <span class="msg-time">{{ msg.created_at|date:"H:i" }}</span>
       </div>
       {% empty %}
-      <div style="text-align:center;color:var(--text3);font-size:13px;padding:2rem 0">
-        Начните переписку — напишите первое сообщение
-      </div>
+      <div style="text-align:center;color:var(--text3);font-size:13px;padding:2rem">Начните переписку</div>
       {% endfor %}
     </div>
 
+    <!-- File preview bar -->
+    <div id="file-preview-bar" style="display:none;padding:8px 16px;background:var(--bg3);border-top:1px solid var(--border);display:none;align-items:center;gap:10px">
+      <div id="file-thumb"></div>
+      <div style="flex:1;min-width:0">
+        <div id="file-preview-name" style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+        <div id="file-preview-size" style="font-size:11px;color:var(--text3)"></div>
+      </div>
+      <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px;line-height:1">×</button>
+    </div>
+
+    <!-- Sticker panel -->
+    <div id="sticker-panel" style="display:none;padding:10px 14px;background:var(--bg3);border-top:1px solid var(--border);flex-wrap:wrap;gap:4px"></div>
+
+    <!-- Input area -->
     <div class="chat-input-area">
+      <!-- Attach file -->
+      <label class="chat-action-btn" title="Прикрепить файл" style="cursor:pointer">
+        <input type="file" id="file-input" style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="onFileSelect(this)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </label>
+      <!-- Stickers -->
+      <button class="chat-action-btn" title="Стикеры" onclick="toggleStickers()" id="sticker-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </button>
       <textarea class="chat-input" id="msg-input" placeholder="Написать сообщение..." rows="1"></textarea>
       <button class="chat-send-btn" onclick="sendMessage()" title="Отправить (Enter)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"></line>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
       </button>
     </div>
   </div>
 </div>
 
+<!-- Image lightbox -->
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out" onclick="this.style.display='none'">
+  <img id="lightbox-img" style="max-width:90vw;max-height:90vh;border-radius:8px;object-fit:contain">
+</div>
+
+<style>
+.chat-action-btn {
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;color:var(--text3);cursor:pointer;border-radius:8px;
+  transition:background .12s,color .12s;flex-shrink:0;
+}
+.chat-action-btn:hover { background:var(--surface);color:var(--text); }
+
+.msg-image {
+  max-width:280px;max-height:240px;border-radius:10px;
+  display:block;cursor:zoom-in;object-fit:cover;
+  transition:opacity .12s;
+}
+.msg-image:hover { opacity:.9; }
+
+.msg-file-link {
+  display:flex;align-items:center;gap:9px;
+  padding:8px 10px;background:rgba(255,255,255,.08);
+  border-radius:8px;text-decoration:none;
+  margin-top:4px;transition:background .12s;
+}
+.msg-row.mine .msg-file-link { background:rgba(255,255,255,.15); }
+.msg-file-link:hover { background:rgba(255,255,255,.18); }
+.msg-file-icon {
+  width:34px;height:34px;border-radius:7px;
+  background:rgba(255,255,255,.15);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;text-transform:uppercase;flex-shrink:0;
+}
+.msg-row:not(.mine) .msg-file-icon { background:var(--accent);color:#fff; }
+.msg-file-info { display:flex;flex-direction:column;min-width:0; }
+.msg-file-name { font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px; }
+.msg-row.mine .msg-file-name { color:#fff; }
+.msg-file-size { font-size:11px;color:rgba(255,255,255,.6);margin-top:1px; }
+.msg-row:not(.mine) .msg-file-size { color:var(--text3); }
+
+.sticker-btn-el {
+  font-size:24px;cursor:pointer;padding:4px;border-radius:6px;
+  transition:transform .12s,background .12s;border:none;background:none;
+}
+.sticker-btn-el:hover { transform:scale(1.25);background:var(--surface); }
+</style>
+
 <script>
-const CONV_ID = {{ conv.pk }};
-const ME_ID   = {{ request.user.pk }};
+const CONV_ID  = {{ conv.pk }};
+const ME_ID    = {{ request.user.pk }};
 const SEND_URL = '{% url "chat_send" conv.pk %}';
 const POLL_URL = '{% url "chat_poll" conv.pk %}';
-const CSRF    = '{{ csrf_token }}';
+const CSRF     = '{{ csrf_token }}';
 
-let lastId = {% if messages_qs %}{{ messages_qs.last.pk|default:0 }}{% else %}0{% endif %};
-let pollTimer = null;
+let lastId = {% if messages_qs.exists %}{{ messages_qs.last.pk }}{% else %}0{% endif %};
 let lastDate = null;
+let pendingFile = null;
 
-// ── Auto-resize textarea ──
-const input = document.getElementById('msg-input');
-input.addEventListener('input', () => {
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-});
-input.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
+// ── Stickers ──
+const STICKERS = [
+  '👍','👎','👋','🤝','💪','🙌','👏','🤜','✅','❌',
+  '🔥','⚡','🎉','🎊','💯','⭐','🏆','🥇','📌','📋',
+  '😊','😂','😍','🤔','😅','😎','🙏','😢','😡','🤩',
+  '❤️','💙','💚','💛','🖤','💜','🤍','🧡','💔','💕',
+  '📅','📊','📈','📉','💰','🕐','📧','📞','💬','🔔',
+  '✍️','📝','🗂️','📁','🔍','💡','⚙️','🚀','🎯','🏁',
+];
+
+function buildStickers() {
+  const panel = document.getElementById('sticker-panel');
+  panel.innerHTML = STICKERS.map(s =>
+    `<button class="sticker-btn-el" onclick="sendSticker('${s}')" title="${s}">${s}</button>`
+  ).join('');
+}
+buildStickers();
+
+function toggleStickers() {
+  const p = document.getElementById('sticker-panel');
+  const showing = p.style.display === 'flex';
+  p.style.display = showing ? 'none' : 'flex';
+}
+
+async function sendSticker(emoji) {
+  document.getElementById('sticker-panel').style.display = 'none';
+  await doSend(emoji, null);
+}
+
+// ── File handling ──
+function onFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Файл слишком большой. Максимум 10 МБ.');
+    input.value = '';
+    return;
   }
-});
-
-// ── Scroll to bottom ──
-function scrollBottom(smooth) {
-  const el = document.getElementById('messages');
-  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
-}
-scrollBottom(false);
-
-// ── Day separator ──
-function daySep(dateStr) {
-  if (dateStr === lastDate) return null;
-  lastDate = dateStr;
-  const d = document.createElement('div');
-  d.className = 'chat-day-sep';
-  d.innerHTML = `<span>${dateStr}</span>`;
-  return d;
-}
-
-// ── Render message bubble ──
-function renderMsg(m) {
-  const sep = daySep(m.date);
-  const msgs = document.getElementById('messages');
-  if (sep) msgs.appendChild(sep);
-
-  // Check if previous was same sender (hide avatar)
-  const prev = msgs.lastElementChild;
-  const prevMine = prev && prev.classList.contains('mine');
-  const curMine  = m.mine !== undefined ? m.mine : (m.sender_id === ME_ID);
-
-  const row = document.createElement('div');
-  row.className = 'msg-row' + (curMine ? ' mine' : '');
-  row.dataset.id = m.id;
-  row.dataset.date = m.date;
-
-  // Hide avatar if same sender as previous
-  const sameDir = prev && prev.classList.contains('msg-row') && prevMine === curMine;
-  row.innerHTML = `
-    <div class="msg-av" style="${sameDir ? 'visibility:hidden' : ''}">${m.sender[0].toUpperCase()}</div>
-    <div class="msg-bubble">${escHtml(m.text)}</div>
-    <span class="msg-time">${m.created_at}</span>
-  `;
-  msgs.appendChild(row);
-  return row;
+  pendingFile = file;
+  const bar = document.getElementById('file-preview-bar');
+  bar.style.display = 'flex';
+  document.getElementById('file-preview-name').textContent = file.name;
+  document.getElementById('file-preview-size').textContent = formatSize(file.size);
+  const thumb = document.getElementById('file-thumb');
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      thumb.innerHTML = `<img src="${e.target.result}" style="width:44px;height:44px;border-radius:6px;object-fit:cover">`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    const ext = file.name.split('.').pop().toUpperCase();
+    thumb.innerHTML = `<div style="width:44px;height:44px;border-radius:6px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${ext}</div>`;
+  }
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+function clearFile() {
+  pendingFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-preview-bar').style.display = 'none';
+  document.getElementById('file-thumb').innerHTML = '';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' Б';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+  return (bytes / 1024 / 1024).toFixed(1) + ' МБ';
 }
 
 // ── Send ──
 async function sendMessage() {
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  input.style.height = 'auto';
+  const text = document.getElementById('msg-input').value.trim();
+  if (!text && !pendingFile) return;
+  const file = pendingFile;
+  document.getElementById('msg-input').value = '';
+  document.getElementById('msg-input').style.height = 'auto';
+  clearFile();
+  await doSend(text, file);
+}
 
-  const res = await fetch(SEND_URL, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json','X-CSRFToken': CSRF},
-    body: JSON.stringify({text}),
-  });
+async function doSend(text, file) {
+  let res;
+  if (file) {
+    const fd = new FormData();
+    if (text) fd.append('text', text);
+    fd.append('file', file);
+    res = await fetch(SEND_URL, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF},
+      body: fd,
+    });
+  } else {
+    res = await fetch(SEND_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({text}),
+    });
+  }
   if (res.ok) {
     const m = await res.json();
     m.mine = true;
     renderMsg(m);
     lastId = m.id;
     scrollBottom(true);
+  } else {
+    const err = await res.json().catch(() => ({}));
+    if (err.error) alert(err.error);
   }
 }
 
-// ── Poll ──
-async function poll() {
-  try {
-    const res = await fetch(`${POLL_URL}?since=${lastId}`);
-    if (!res.ok) return;
-    const data = await res.json();
-
-    const wasBottom = isNearBottom();
-    data.messages.forEach(m => {
-      if (m.id > lastId) {
-        renderMsg(m);
-        lastId = m.id;
-      }
-    });
-    if (wasBottom && data.messages.length) scrollBottom(true);
-
-    // Update nav badge
-    updateNavBadge(data.total_unread);
-  } catch(e) {}
-  pollTimer = setTimeout(poll, 2000);
+// ── Render ──
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
+function renderFileAttachment(f, mine) {
+  if (f.type === 'image') {
+    return `<div class="msg-img-wrap" style="margin-top:4px">
+      <img src="${f.url}" alt="${escHtml(f.name)}" class="msg-image" onclick="openImg(this.src)">
+    </div>`;
+  }
+  const ext = f.name.split('.').pop().toUpperCase();
+  const size = formatSize(f.size);
+  return `<a href="${f.url}" download="${escHtml(f.name)}" class="msg-file-link" style="margin-top:4px">
+    <div class="msg-file-icon">${ext}</div>
+    <div class="msg-file-info">
+      <span class="msg-file-name">${escHtml(f.name)}</span>
+      <span class="msg-file-size">${size}</span>
+    </div>
+  </a>`;
+}
+
+function renderMsg(m) {
+  const msgs = document.getElementById('messages');
+
+  // Day separator
+  if (m.date !== lastDate) {
+    lastDate = m.date;
+    const sep = document.createElement('div');
+    sep.className = 'chat-day-sep';
+    sep.innerHTML = `<span>${m.date}</span>`;
+    msgs.appendChild(sep);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (m.mine ? ' mine' : '');
+  row.dataset.id = m.id;
+  row.dataset.date = m.date;
+
+  let content = m.text ? escHtml(m.text) : '';
+  if (m.file) content += renderFileAttachment(m.file, m.mine);
+
+  row.innerHTML = `
+    <div class="msg-av">${m.sender[0].toUpperCase()}</div>
+    <div class="msg-bubble">${content}</div>
+    <span class="msg-time">${m.created_at}</span>
+  `;
+  msgs.appendChild(row);
+}
+
+// ── Lightbox ──
+function openImg(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('sticker-panel').style.display = 'none';
+    document.getElementById('new-panel').classList.remove('open');
+  }
+});
+
+// ── Textarea ──
+const input = document.getElementById('msg-input');
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// ── Scroll ──
+function scrollBottom(smooth) {
+  const el = document.getElementById('messages');
+  el.scrollTo({top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto'});
+}
 function isNearBottom() {
   const el = document.getElementById('messages');
   return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
+scrollBottom(false);
 
-function updateNavBadge(count) {
-  const badge = document.getElementById('nav-unread-badge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
-  // Also update any global nav badge
-  document.querySelectorAll('.nav-chat-badge').forEach(b => {
-    b.textContent = count;
-    b.style.display = count > 0 ? '' : 'none';
-  });
-}
-
-// Build day separators for existing messages
-(function buildSeps() {
-  const rows = document.querySelectorAll('.msg-row');
-  rows.forEach(row => {
+// ── Build day seps for existing messages ──
+(function() {
+  document.querySelectorAll('.msg-row').forEach(row => {
     const d = row.dataset.date;
     if (d !== lastDate) {
       const sep = document.createElement('div');
@@ -240,7 +389,30 @@ function updateNavBadge(count) {
   });
 })();
 
-// ── New chat panel ──
+// ── Poll ──
+async function poll() {
+  try {
+    const res = await fetch(`${POLL_URL}?since=${lastId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const wasBottom = isNearBottom();
+    data.messages.forEach(m => {
+      if (m.id > lastId) { renderMsg(m); lastId = m.id; }
+    });
+    if (wasBottom && data.messages.length) scrollBottom(true);
+    updateNavBadge(data.total_unread);
+  } catch(e) {}
+  setTimeout(poll, 2000);
+}
+
+function updateNavBadge(count) {
+  const b = document.getElementById('nav-unread-badge');
+  if (b) { b.textContent = count; b.style.display = count > 0 ? '' : 'none'; }
+  document.querySelectorAll('.nav-chat-badge').forEach(el => {
+    el.textContent = count; el.style.display = count > 0 ? '' : 'none';
+  });
+}
+
 function toggleNew() {
   document.getElementById('new-panel').classList.toggle('open');
   if (document.getElementById('new-panel').classList.contains('open'))
@@ -253,8 +425,6 @@ function filterUsers() {
   });
 }
 
-// Start polling
 poll();
-window.addEventListener('beforeunload', () => clearTimeout(pollTimer));
 </script>
 {% endblock %}

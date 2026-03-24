@@ -176,7 +176,11 @@ class Message(models.Model):
         User, on_delete=models.CASCADE, related_name='sent_messages',
         verbose_name='Отправитель'
     )
-    text = models.TextField('Текст')
+    text = models.TextField('Текст', blank=True)
+    file = models.FileField('Файл', upload_to='chat/%Y/%m/', null=True, blank=True)
+    file_name = models.CharField('Имя файла', max_length=255, blank=True)
+    file_size = models.PositiveIntegerField('Размер файла', null=True, blank=True)
+    file_type = models.CharField('Тип', max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
 
