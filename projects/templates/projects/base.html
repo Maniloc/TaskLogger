@@ -630,6 +630,10 @@ select option { background: var(--bg3); color: var(--text); }
     {% endif %}
   </div>
   <div class="nav-right">
+    <button onclick="openHelpModal()" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #333;border-radius:5px;color:#666;font-size:12px;background:none;cursor:pointer;font-family:inherit;transition:color .12s,border-color .12s" onmouseover="this.style.color='#aaa';this.style.borderColor='#555'" onmouseout="this.style.color='#666';this.style.borderColor='#333'" title="Справка">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      справка
+    </button>
     <button onclick="openInviteModal()" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #333;border-radius:5px;color:#666;font-size:12px;background:none;cursor:pointer;font-family:inherit;transition:color .12s,border-color .12s" onmouseover="this.style.color='#aaa';this.style.borderColor='#555'" onmouseout="this.style.color='#666';this.style.borderColor='#333'" title="Пригласить пользователя">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
       пригласить
@@ -843,5 +847,165 @@ function copyInviteLink() {
     </div>
   </div>
 </div>
+
+<!-- Help Modal -->
+<div id="help-modal" onclick="if(event.target===this)closeHelpModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1001;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:600;color:var(--text)">Справка — TaskLogger</div>
+          <div style="font-size:12px;color:var(--text3)">учёт рабочих задач и формирование отчётов</div>
+        </div>
+      </div>
+      <button onclick="closeHelpModal()" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1;padding:4px;border-radius:6px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">×</button>
+    </div>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto">
+      <button class="help-tab active" onclick="showHelp('start')" id="htab-start">🚀 Начало</button>
+      <button class="help-tab" onclick="showHelp('projects')" id="htab-projects">📁 Проекты</button>
+      <button class="help-tab" onclick="showHelp('tasks')" id="htab-tasks">✅ Задачи</button>
+      <button class="help-tab" onclick="showHelp('report')" id="htab-report">📊 Отчёты</button>
+      <button class="help-tab" onclick="showHelp('analytics')" id="htab-analytics">📈 Аналитика</button>
+      <button class="help-tab" onclick="showHelp('chat')" id="htab-chat">💬 Чат</button>
+      <button class="help-tab" onclick="showHelp('profile')" id="htab-profile">👤 Профиль</button>
+    </div>
+    <div style="overflow-y:auto;padding:1.5rem;flex:1">
+
+      <div id="hcontent-start" class="help-content">
+        <div class="help-section">
+          <div class="help-step"><span class="help-num">1</span><div><strong>Создайте проект</strong> — нажмите <span class="help-kbd">+ новый проект</span> на дашборде или в разделе «Проекты». Укажите название, инициатора и при необходимости обоснование.</div></div>
+          <div class="help-step"><span class="help-num">2</span><div><strong>Добавьте задачи</strong> — откройте проект и заполните форму «Добавить задачу». Укажите дату, описание, статус и часы.</div></div>
+          <div class="help-step"><span class="help-num">3</span><div><strong>Ведите учёт каждый день</strong> — записывайте выполненные и запланированные задачи. Приложение напомнит если вы не добавляли записи 2+ дней.</div></div>
+          <div class="help-step"><span class="help-num">4</span><div><strong>Формируйте отчёт</strong> — в конце месяца зайдите в раздел «Отчёт», выберите период и скачайте Excel или скопируйте текст.</div></div>
+        </div>
+        <div class="help-tip">💡 Заполняйте поле «Обоснование» — номер письма, ссылку на документ. Это упрощает составление официальных отчётов.</div>
+      </div>
+
+      <div id="hcontent-projects" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Что такое проект?</div>
+          <p>Проект — тематическая группа задач. Например: «Цифровизация документооборота», «Внутренний аудит 2026».</p>
+          <div class="help-h" style="margin-top:1rem">Страница «Мои проекты»</div>
+          <p>Все проекты с прогресс-баром и статистикой. Цветная полоса слева:</p>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--red);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">есть просроченные задачи</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--accent);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">есть активные задачи</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--green);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">все задачи выполнены</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--text3);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">нет задач</span></div>
+          </div>
+        </div>
+        <div class="help-tip">💡 Переключайтесь между видом «список» и «сетка» кнопками в правом верхнем углу.</div>
+      </div>
+
+      <div id="hcontent-tasks" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Статусы задач</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+            <div style="display:flex;align-items:center;gap:10px"><span class="badge b-status-done">Выполнено</span><span style="font-size:13px;color:var(--text2)">работа завершена</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="badge b-status-in_progress">В работе</span><span style="font-size:13px;color:var(--text2)">выполняется прямо сейчас</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="badge b-status-todo">Запланировано</span><span style="font-size:13px;color:var(--text2)">предстоит, можно указать срок</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="badge b-status-deferred">Отложено</span><span style="font-size:13px;color:var(--text2)">временно приостановлено</span></div>
+          </div>
+          <div class="help-h" style="margin-top:1rem">Ввод часов</div>
+          <p>Принимаются форматы: <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px">2.5</code> <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px">2,5</code> <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px">2ч30м</code> <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:13px">2:30</code></p>
+        </div>
+        <div class="help-tip">💡 На дашборде слева показываются незавершённые задачи, сгруппированные по срочности. Нажмите задачу — откроется редактирование.</div>
+      </div>
+
+      <div id="hcontent-report" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Как сформировать отчёт</div>
+          <div class="help-step"><span class="help-num">1</span><div>Перейдите в раздел <strong>Отчёт</strong></div></div>
+          <div class="help-step"><span class="help-num">2</span><div>Выберите проект, период, статус</div></div>
+          <div class="help-step"><span class="help-num">3</span><div>Нажмите <span class="help-kbd">применить</span></div></div>
+          <div class="help-step"><span class="help-num">4</span><div>Скачайте <span class="help-kbd">Excel</span> или скопируйте текстовую версию</div></div>
+          <div class="help-h" style="margin-top:1rem">Excel-отчёт</div>
+          <p>Форматированная таблица: синяя шапка, чередующиеся строки, зелёный цвет для выполненных задач, красный для просроченных, итоговая строка с суммой часов.</p>
+        </div>
+        <div class="help-tip">💡 Поле «Обоснование» выводится в отчёт отдельной колонкой — заполняйте его при добавлении задачи.</div>
+      </div>
+
+      <div id="hcontent-analytics" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Графики аналитики</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;font-size:13px;color:var(--text2)">
+            <div><strong style="color:var(--text)">Динамика по месяцам</strong> — задачи и часы за каждый месяц. Синий — выполненные, красный — просроченные.</div>
+            <div><strong style="color:var(--text)">Активность по дням</strong> — интенсивность работы. Чем насыщеннее цвет — тем больше задач.</div>
+            <div><strong style="color:var(--text)">Топ проектов по часам</strong> — куда ушло больше всего времени.</div>
+            <div><strong style="color:var(--text)">Просрочено по проектам</strong> — где накопились задачи с истёкшим сроком.</div>
+          </div>
+          <div class="help-h" style="margin-top:1rem">Фильтр периода</div>
+          <p>Выберите даты в верхней строке — все цифры и графики пересчитаются. Быстрые кнопки: <span class="help-kbd">7д</span> <span class="help-kbd">30д</span> <span class="help-kbd">90д</span> <span class="help-kbd">год</span></p>
+        </div>
+      </div>
+
+      <div id="hcontent-chat" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Личные сообщения</div>
+          <div class="help-step"><span class="help-num">1</span><div>Нажмите <strong>чат</strong> в навбаре</div></div>
+          <div class="help-step"><span class="help-num">2</span><div>Нажмите <span class="help-kbd">+</span> и выберите пользователя</div></div>
+          <div class="help-step"><span class="help-num">3</span><div>Напишите сообщение, <span class="help-kbd">Enter</span> — отправить</div></div>
+          <div class="help-h" style="margin-top:1rem">Дополнительно</div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2)">
+            <div>📎 Файлы — скрепка или перетащите в окно чата</div>
+            <div>😊 Эмодзи — иконка смайлика открывает пикер</div>
+            <div>📋 Ctrl+V — вставка изображения из буфера</div>
+            <div>✏️ ПКМ на своё сообщение — редактировать / удалить</div>
+          </div>
+        </div>
+        <div class="help-tip">💡 Красный бейдж на иконке чата — количество непрочитанных сообщений.</div>
+      </div>
+
+      <div id="hcontent-profile" class="help-content" style="display:none">
+        <div class="help-section">
+          <div class="help-h">Что можно настроить</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--text2)">
+            <div>👤 <strong>ФИО</strong> — отображается в навбаре вместо логина</div>
+            <div>🏷️ <strong>Должность и отдел</strong></div>
+            <div>🖼️ <strong>Фото или цветной аватар</strong> с инициалами</div>
+            <div>🔑 <strong>Смена пароля</strong></div>
+          </div>
+          <div class="help-h" style="margin-top:1rem">Темы оформления</div>
+          <p>Цветные кружки в правом углу навбара — 4 тёмных и 2 светлых темы. Выбор сохраняется в браузере.</p>
+          <div class="help-h" style="margin-top:1rem">Приглашение коллег</div>
+          <p>Кнопка <span class="help-kbd">пригласить</span> в навбаре создаёт одноразовую ссылку. Коллега переходит по ней и регистрируется самостоятельно.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+.help-tab {
+  padding: 10px 16px; font-size: 13px; background: none; border: none;
+  border-bottom: 2px solid transparent; cursor: pointer; color: var(--text3);
+  font-family: inherit; white-space: nowrap; transition: color .12s; margin-bottom: -1px;
+}
+.help-tab:hover { color: var(--text2); }
+.help-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+.help-section { font-size: 14px; color: var(--text2); line-height: 1.7; }
+.help-section p { margin: 6px 0; }
+.help-h { font-size: 14px; font-weight: 600; color: var(--text); }
+.help-step { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.help-step:last-of-type { border-bottom: none; }
+.help-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.help-kbd { display: inline-block; background: var(--bg3); border: 1px solid var(--border2); border-radius: 5px; padding: 1px 7px; font-size: 12px; color: var(--text2); font-family: inherit; }
+.help-tip { margin-top: 1.25rem; padding: 10px 14px; background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 8px; font-size: 13px; color: var(--text2); line-height: 1.6; }
+</style>
+<script>
+function openHelpModal() { document.getElementById('help-modal').style.display = 'flex'; }
+function closeHelpModal() { document.getElementById('help-modal').style.display = 'none'; }
+function showHelp(tab) {
+  document.querySelectorAll('.help-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.help-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('hcontent-' + tab).style.display = 'block';
+  document.getElementById('htab-' + tab).classList.add('active');
+}
+</script>
+
 </body>
 </html>
