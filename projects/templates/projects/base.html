@@ -642,9 +642,14 @@ select option { background: var(--bg3); color: var(--text); }
     <div class="theme-dot" style="background:#2952cc;border-color:#ccc" title="Light Paper" onclick="setTheme('light-paper')" id="td-light-paper"></div>
     <div class="theme-dot" style="background:#b05c20;border-color:#ccc" title="Light Warm"  onclick="setTheme('light-warm')"  id="td-light-warm"></div>
     <a href="{% url 'profile' %}" class="nav-profile" title="Личный кабинет">
-      <div class="nav-avatar">
+      {% if user.profile.avatar %}
+      <img src="{{ user.profile.avatar.url }}" alt="avatar"
+           style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      {% else %}
+      <div class="nav-avatar" style="{% if user.profile.avatar_color %}background:{{ user.profile.avatar_color }}{% endif %}">
         {% if user.profile.initials %}{{ user.profile.initials }}{% else %}{{ user.username|first|upper }}{% endif %}
       </div>
+      {% endif %}
       <span class="nav-display-name">
         {% if user.profile.display_name %}{{ user.profile.display_name }}{% else %}{{ user.username }}{% endif %}
       </span>

@@ -2,100 +2,93 @@
 {% block title %}Аналитика — TaskTracker{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <div>
-    <div class="page-title">аналитика</div>
-  </div>
-  <!-- Date range filter -->
-  <form method="get" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-    <div class="fg" style="margin:0">
-      <label>с</label>
-      <input type="date" name="date_from" value="{{ date_from }}" style="width:140px">
-    </div>
-    <div class="fg" style="margin:0">
-      <label>по</label>
-      <input type="date" name="date_to" value="{{ date_to }}" style="width:140px">
-    </div>
-    <button type="submit" class="btn btn-primary btn-sm">применить</button>
-    <a href="{% url 'analytics' %}" class="btn btn-ghost btn-sm">сброс</a>
+<!-- ── Date range filter bar ── -->
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  <span style="font-size:12px;color:var(--text3);white-space:nowrap">период:</span>
+  <form method="get" id="analytics-form" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+    <input type="date" name="date_from" value="{{ date_from }}" id="inp-from"
+           style="width:140px;padding:6px 10px;font-size:13px"
+           onchange="document.getElementById('analytics-form').submit()">
+    <span style="color:var(--text3);font-size:13px">—</span>
+    <input type="date" name="date_to" value="{{ date_to }}" id="inp-to"
+           style="width:140px;padding:6px 10px;font-size:13px"
+           onchange="document.getElementById('analytics-form').submit()">
     <!-- Quick presets -->
-    <div style="display:flex;gap:4px">
-      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(7)">7д</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(30)">30д</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(90)">3м</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(365)">год</button>
+    <div style="display:flex;gap:4px;margin-left:4px">
+      {% for label, days in presets %}
+      <button type="button" class="btn btn-ghost btn-sm"
+              style="padding:4px 10px;font-size:12px"
+              onclick="setPreset({{ days }})">{{ label }}</button>
+      {% endfor %}
     </div>
+    <a href="{% url 'analytics' %}" class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:12px">сброс</a>
   </form>
+  <span style="font-size:12px;color:var(--text3);white-space:nowrap">{{ range_days }} дн.</span>
 </div>
-<script>
-function setPreset(days) {
-  const to = new Date();
-  const from = new Date(to - days * 86400000);
-  document.querySelector('[name=date_from]').value = from.toISOString().slice(0,10);
-  document.querySelector('[name=date_to]').value   = to.toISOString().slice(0,10);
-  document.querySelector('form').submit();
-}
-</script>
 
-{% if total_all.count == 0 %}
+{% if total_range.count == 0 %}
 <div class="no-data-notice">
-  <strong>Нет данных для отображения</strong>
-  Добавьте первые задачи — и здесь появятся графики.
+  <strong>Нет данных за выбранный период</strong>
+  Попробуйте расширить диапазон дат или добавьте задачи.
   <div style="margin-top:12px">
-    <button class="btn btn-primary btn-sm" onclick="toggleQuick()">+ добавить задачу</button>
+    <a href="{% url 'analytics' %}" class="btn btn-ghost btn-sm">сбросить фильтр</a>
   </div>
 </div>
 {% else %}
 
-<!-- Summary stat cards -->
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1.75rem">
+<!-- ── Stat cards ── -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:1.5rem">
+
   <div class="stat-card">
-    <div class="stat-val">{{ total_all.count|default:0 }}</div>
-    <div class="stat-lbl">всего задач</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-val">{{ total_all.hours|default:0|floatformat:1 }}ч</div>
-    <div class="stat-lbl">всего часов</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-val">
-      {{ this_month.count|default:0 }}
-      {% if last_month.count %}
-        {% if this_month.count > last_month.count %}<span style="font-size:14px;color:var(--green);font-weight:500">↑</span>
-        {% elif this_month.count < last_month.count %}<span style="font-size:14px;color:var(--red);font-weight:500">↓</span>
-        {% endif %}
-      {% endif %}
+    <div class="stat-val">{{ total_range.count|default:0 }}</div>
+    <div class="stat-lbl">задач</div>
+    {% if prev_range.count %}
+    <div style="font-size:11px;margin-top:4px;color:{% if total_range.count > prev_range.count %}var(--green){% elif total_range.count < prev_range.count %}var(--red){% else %}var(--text3){% endif %}">
+      {% if total_range.count > prev_range.count %}↑{% elif total_range.count < prev_range.count %}↓{% else %}={% endif %}
+      {{ prev_range.count }} в пред. периоде
     </div>
-    <div class="stat-lbl">задач в месяце</div>
+    {% endif %}
   </div>
+
   <div class="stat-card">
-    <div class="stat-val">
-      {{ this_month.hours|default:0|floatformat:1 }}ч
-      {% if last_month.hours %}
-        {% if this_month.hours > last_month.hours %}<span style="font-size:14px;color:var(--green);font-weight:500">↑</span>
-        {% elif this_month.hours < last_month.hours %}<span style="font-size:14px;color:var(--red);font-weight:500">↓</span>
-        {% endif %}
-      {% endif %}
+    <div class="stat-val">{{ total_range.hours|default:0|floatformat:1 }}ч</div>
+    <div class="stat-lbl">часов</div>
+    {% if prev_range.hours %}
+    <div style="font-size:11px;margin-top:4px;color:{% if total_range.hours > prev_range.hours %}var(--green){% elif total_range.hours < prev_range.hours %}var(--red){% else %}var(--text3){% endif %}">
+      {% if total_range.hours > prev_range.hours %}↑{% elif total_range.hours < prev_range.hours %}↓{% else %}={% endif %}
+      {{ prev_range.hours|floatformat:1 }}ч пред.
     </div>
-    <div class="stat-lbl">часов в месяце</div>
+    {% endif %}
   </div>
-  <div class="stat-card" style="{% if overdue_total %}border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.06){% endif %}">
+
+  {% if total_range.count and range_days %}
+  <div class="stat-card">
+    <div class="stat-val">{{ total_range.count|floatformat:0 }}</div>
+    <div class="stat-lbl">задач / {{ range_days }} дн.</div>
+    <div style="font-size:11px;margin-top:4px;color:var(--text3)">
+      ~{{ total_range.count|floatformat:0 }} всего
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="stat-card" style="{% if overdue_total %}border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.05){% endif %}">
     <div class="stat-val" style="{% if overdue_total %}color:var(--red){% endif %}">{{ overdue_total }}</div>
     <div class="stat-lbl" style="{% if overdue_total %}color:var(--red){% endif %}">просрочено</div>
   </div>
+
 </div>
 
-<!-- Monthly dynamics — stacked bar: done + overdue -->
+<!-- ── Monthly dynamics ── -->
 <div class="card" style="margin-bottom:1.25rem">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-    <div class="card-title" style="margin-bottom:0">динамика по месяцам — 12 мес.</div>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-ghost btn-sm" id="m-tasks-btn" onclick="setMonthlyMode('tasks')">задачи</button>
-      <button class="btn btn-ghost btn-sm" id="m-hours-btn" onclick="setMonthlyMode('hours')">часы</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
+    <div class="card-title" style="margin-bottom:0">динамика по месяцам</div>
+    <div style="display:flex;gap:5px">
+      <button class="btn btn-ghost btn-sm" id="m-tasks-btn" onclick="setMonthlyMode('tasks')" style="font-size:11px;padding:3px 9px">задачи</button>
+      <button class="btn btn-ghost btn-sm" id="m-hours-btn" onclick="setMonthlyMode('hours')" style="font-size:11px;padding:3px 9px">часы</button>
     </div>
   </div>
-  <!-- Legend -->
-  <div style="display:flex;gap:16px;margin-bottom:10px">
+  <div style="display:flex;gap:14px;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
       <div style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.8"></div>выполнено
     </div>
@@ -106,69 +99,75 @@ function setPreset(days) {
   <div style="position:relative;height:220px"><canvas id="monthlyChart"></canvas></div>
 </div>
 
-<!-- Daily activity — stacked bar: done + overdue -->
+<!-- ── Daily activity ── -->
 <div class="card" style="margin-bottom:1.25rem">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-    <div class="card-title" style="margin-bottom:0">активность по дням — 30 дней</div>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-ghost btn-sm" id="d-tasks-btn" onclick="setDailyMode('tasks')">задачи</button>
-      <button class="btn btn-ghost btn-sm" id="d-hours-btn" onclick="setDailyMode('hours')">часы</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
+    <div class="card-title" style="margin-bottom:0">активность по дням{% if range_days > 90 %} (последние 90 дн.){% endif %}</div>
+    <div style="display:flex;gap:5px">
+      <button class="btn btn-ghost btn-sm" id="d-tasks-btn" onclick="setDailyMode('tasks')" style="font-size:11px;padding:3px 9px">задачи</button>
+      <button class="btn btn-ghost btn-sm" id="d-hours-btn" onclick="setDailyMode('hours')" style="font-size:11px;padding:3px 9px">часы</button>
     </div>
   </div>
-  <div style="display:flex;gap:16px;margin-bottom:10px">
+  <div style="display:flex;gap:14px;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
       <div style="width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:.8"></div>выполнено
     </div>
     <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)">
-      <div style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></div>просрочено в этот день
+      <div style="width:10px;height:10px;border-radius:2px;background:var(--red);opacity:.7"></div>просрочено
     </div>
   </div>
   <div style="position:relative;height:180px"><canvas id="dailyChart"></canvas></div>
 </div>
 
-<!-- Status donut + Overdue by project -->
-<div style="display:grid;grid-template-columns:1fr 2fr;gap:1.25rem;margin-bottom:1.25rem">
+<!-- ── Bottom row: Status + Projects + Overdue ── -->
+<div style="display:grid;grid-template-columns:200px 1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+
+  <!-- Status donut -->
   <div class="card" style="margin-bottom:0">
-    <div class="card-title">статусы задач</div>
-    {% if status_counts %}
-    <div style="position:relative;height:200px;display:flex;align-items:center;justify-content:center">
+    <div class="card-title">статусы</div>
+    <div style="position:relative;height:160px;display:flex;align-items:center;justify-content:center">
       <canvas id="statusChart"></canvas>
     </div>
-    <div id="status-legend" style="margin-top:12px;display:flex;flex-direction:column;gap:7px"></div>
+    <div id="status-legend" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+  <!-- Top projects -->
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">топ проектов по часам</div>
+    {% if proj_hours %}
+    <div style="position:relative;height:200px"><canvas id="projectsChart"></canvas></div>
     {% else %}
-    <div class="no-data-notice" style="padding:1.5rem;margin-top:0">нет данных</div>
+    <div class="no-data-notice" style="padding:1.5rem;margin-top:0;font-size:13px">нет данных</div>
     {% endif %}
   </div>
 
-  <div style="display:grid;grid-template-rows:1fr 1fr;gap:1.25rem">
-    <!-- Top projects by hours -->
-    <div class="card" style="margin-bottom:0">
-      <div class="card-title">топ проектов по часам</div>
-      {% if proj_hours %}
-      <div style="position:relative;height:130px"><canvas id="projectsChart"></canvas></div>
-      {% else %}
-      <div class="no-data-notice" style="padding:1rem;margin-top:0">нет данных по часам</div>
-      {% endif %}
+  <!-- Overdue by project -->
+  <div class="card" style="margin-bottom:0;{% if overdue_total %}border-color:rgba(248,113,113,.25){% endif %}">
+    <div class="card-title" style="{% if overdue_total %}color:var(--red){% endif %}">просрочено по проектам</div>
+    {% if overdue_total %}
+    <div style="position:relative;height:200px"><canvas id="overdueChart"></canvas></div>
+    {% else %}
+    <div style="font-size:13px;color:var(--green);padding:1rem 0;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">✓</span>Просрочек нет
     </div>
-
-    <!-- Overdue by project -->
-    <div class="card" style="margin-bottom:0;{% if overdue_total %}border-color:rgba(248,113,113,.25){% endif %}">
-      <div class="card-title" style="{% if overdue_total %}color:var(--red){% endif %}">просрочено по проектам</div>
-      {% if overdue_total %}
-      <div style="position:relative;height:130px"><canvas id="overdueChart"></canvas></div>
-      {% else %}
-      <div style="font-size:13px;color:var(--green);padding:1rem 0;display:flex;align-items:center;gap:8px">
-        <span style="font-size:18px">✓</span> Просроченных задач нет
-      </div>
-      {% endif %}
-    </div>
+    {% endif %}
   </div>
-</div>
 
+</div>
 {% endif %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
+// Preset buttons
+const PRESETS = [7, 30, 90, 365];
+function setPreset(days) {
+  const to   = new Date();
+  const from = new Date(+to - (days - 1) * 86400000);
+  document.getElementById('inp-from').value = from.toISOString().slice(0,10);
+  document.getElementById('inp-to').value   = to.toISOString().slice(0,10);
+  document.getElementById('analytics-form').submit();
+}
+
 const monthlyLabels  = {{ monthly_labels|safe }};
 const monthlyCounts  = {{ monthly_counts|safe }};
 const monthlyHours   = {{ monthly_hours|safe }};
@@ -193,7 +192,7 @@ function gc(){
     border:cv('--border'), bg2:cv('--bg2'), bg3:cv('--bg3'),
   };
 }
-Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 Chart.defaults.font.size = 12;
 
 function gridOpts(c){ return { color: c.border, drawBorder: false }; }
@@ -204,51 +203,33 @@ function tipOpts(c){
 
 // ── Monthly stacked bar ──
 let monthlyMode = 'tasks', monthlyChart;
-function buildMonthly(){
+function buildMonthly() {
   const c = gc();
-  if(monthlyChart) monthlyChart.destroy();
-  const mainData    = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
-  const mainLabel   = monthlyMode === 'tasks' ? 'Выполнено' : 'Часы';
-  const suffix      = monthlyMode === 'hours' ? 'ч' : ' зад.';
+  if (monthlyChart) monthlyChart.destroy();
+  const mainData  = monthlyMode === 'tasks' ? monthlyCounts : monthlyHours;
+  const suffix    = monthlyMode === 'hours' ? 'ч' : ' зад.';
   monthlyChart = new Chart(document.getElementById('monthlyChart'), {
     type: 'bar',
     data: {
       labels: monthlyLabels,
       datasets: [
-        {
-          label: mainLabel,
-          data: mainData,
-          backgroundColor: c.accent + '88',
-          borderColor: c.accent,
-          borderWidth: 1, borderRadius: 4,
-          stack: 'stack',
-        },
-        {
-          label: 'Просрочено',
-          data: monthlyOverdue,
-          backgroundColor: c.red + '77',
-          borderColor: c.red,
-          borderWidth: 1, borderRadius: 4,
-          stack: 'stack',
-        },
+        { label:'Выполнено', data:mainData, backgroundColor:c.accent+'88', borderColor:c.accent, borderWidth:1, borderRadius:4, stack:'s' },
+        { label:'Просрочено', data:monthlyOverdue, backgroundColor:c.red+'77', borderColor:c.red, borderWidth:1, borderRadius:4, stack:'s' },
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { ...tipOpts(c), callbacks: {
-          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}${suffix}`
-        }}
-      },
-      scales: {
-        x: { stacked: true, grid: gridOpts(c), ticks: { ...tickOpts(c), maxRotation: 40 } },
-        y: { stacked: true, grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{
+        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}${suffix}`
+      }}},
+      scales:{
+        x:{ stacked:true, grid:gridOpts(c), ticks:{...tickOpts(c), maxRotation:40} },
+        y:{ stacked:true, grid:gridOpts(c), ticks:tickOpts(c), beginAtZero:true },
       }
     }
   });
 }
-function setMonthlyMode(m){
+function setMonthlyMode(m) {
   monthlyMode = m; buildMonthly();
   document.getElementById('m-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
   document.getElementById('m-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
@@ -256,151 +237,111 @@ function setMonthlyMode(m){
 
 // ── Daily stacked bar ──
 let dailyMode = 'tasks', dailyChart;
-function buildDaily(){
+function buildDaily() {
   const c = gc();
-  if(dailyChart) dailyChart.destroy();
-  const mainData  = dailyMode === 'tasks' ? dailyCounts : dailyHours;
-  const mainLabel = dailyMode === 'tasks' ? 'Выполнено' : 'Часы';
-  const suffix    = dailyMode === 'hours' ? 'ч' : ' зад.';
+  if (dailyChart) dailyChart.destroy();
+  const mainData = dailyMode === 'tasks' ? dailyCounts : dailyHours;
+  const suffix   = dailyMode === 'hours' ? 'ч' : ' зад.';
   dailyChart = new Chart(document.getElementById('dailyChart'), {
-    type: 'bar',
-    data: {
-      labels: dailyLabels,
-      datasets: [
-        {
-          label: mainLabel,
-          data: mainData,
-          backgroundColor: ctx => {
+    type:'bar',
+    data:{
+      labels:dailyLabels,
+      datasets:[
+        { label:'Выполнено', data:mainData, backgroundColor: ctx => {
             const v = ctx.parsed.y;
-            if(!v) return c.border;
-            if(v >= 5) return c.green + 'cc';
-            if(v >= 3) return c.accent + 'cc';
+            if (!v) return c.border;
+            if (v >= 5) return c.green + 'cc';
+            if (v >= 3) return c.accent + 'cc';
             return c.accent2 + '77';
-          },
-          borderColor: 'transparent', borderRadius: 3,
-          stack: 'stack',
-        },
-        {
-          label: 'Просрочено',
-          data: dailyOverdue,
-          backgroundColor: c.red + '77',
-          borderColor: c.red,
-          borderWidth: 1, borderRadius: 3,
-          stack: 'stack',
-        },
+          }, borderColor:'transparent', borderRadius:3, stack:'s' },
+        { label:'Просрочено', data:dailyOverdue, backgroundColor:c.red+'77', borderColor:c.red, borderWidth:1, borderRadius:3, stack:'s' },
       ]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { ...tipOpts(c), callbacks: {
-          label: ctx => ` ${ctx.dataset.label}: ${dailyMode==='hours' ? ctx.parsed.y.toFixed(1)+'ч' : ctx.parsed.y+' зад.'}`
-        }}
-      },
-      scales: {
-        x: { stacked: true, grid: {display:false}, ticks: { ...tickOpts(c), maxTicksLimit: 15 } },
-        y: { stacked: true, grid: gridOpts(c), ticks: tickOpts(c), beginAtZero: true },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{
+        label: ctx => ` ${ctx.dataset.label}: ${dailyMode==='hours'?ctx.parsed.y.toFixed(1)+'ч':ctx.parsed.y+' зад.'}`
+      }}},
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{...tickOpts(c), maxTicksLimit:20} },
+        y:{ stacked:true, grid:gridOpts(c), ticks:tickOpts(c), beginAtZero:true },
       }
     }
   });
 }
-function setDailyMode(m){
+function setDailyMode(m) {
   dailyMode = m; buildDaily();
   document.getElementById('d-tasks-btn').style.color = m === 'tasks' ? cv('--text') : '';
   document.getElementById('d-hours-btn').style.color = m === 'hours' ? cv('--text') : '';
 }
 
 // ── Status donut ──
-function buildStatus(){
+function buildStatus() {
   const c = gc();
   const colors = [c.green, c.amber, c.text3, c.red];
-  new Chart(document.getElementById('statusChart'), {
-    type: 'doughnut',
-    data: {
-      labels: statusLabels,
-      datasets: [{ data: statusCounts, backgroundColor: colors.map(col => col+'cc'), borderColor: c.bg2, borderWidth: 3, hoverOffset: 6 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '62%',
-      plugins: { legend: { display: false }, tooltip: tipOpts(c) }
-    }
+  const el = document.getElementById('statusChart');
+  if (!el) return;
+  new Chart(el, {
+    type:'doughnut',
+    data:{ labels:statusLabels, datasets:[{ data:statusCounts, backgroundColor:colors.map(col=>col+'cc'), borderColor:c.bg2, borderWidth:3, hoverOffset:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{display:false}, tooltip:tipOpts(c) } }
   });
   const legend = document.getElementById('status-legend');
-  if(legend) legend.innerHTML = statusLabels.map((lbl, i) => `
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:${c.text2}">
-      <div style="width:10px;height:10px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
+  if (legend) legend.innerHTML = statusLabels.map((lbl,i) => `
+    <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:${c.text2}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${colors[i]};flex-shrink:0"></div>
       <span style="flex:1">${lbl}</span>
       <span style="font-weight:600;color:${c.text}">${statusCounts[i]}</span>
     </div>`).join('');
 }
 
 // ── Projects horizontal bar ──
-function buildProjects(){
+function buildProjects() {
   const c = gc();
-  new Chart(document.getElementById('projectsChart'), {
-    type: 'bar',
-    data: {
-      labels: projLabels,
-      datasets: [{ label:'Часы', data:projHours, backgroundColor:c.amber+'88', borderColor:c.amber, borderWidth:1.5, borderRadius:4 }]
-    },
-    options: {
+  const el = document.getElementById('projectsChart');
+  if (!el) return;
+  new Chart(el, {
+    type:'bar',
+    data:{ labels:projLabels, datasets:[{ label:'Часы', data:projHours, backgroundColor:c.amber+'88', borderColor:c.amber, borderWidth:1.5, borderRadius:4 }] },
+    options:{
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x.toFixed(1)}ч`}} },
-      scales: {
-        x: { grid:gridOpts(c), ticks:tickOpts(c), beginAtZero:true },
-        y: { grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}} },
-      }
+      plugins:{ legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x.toFixed(1)}ч`}} },
+      scales:{ x:{grid:gridOpts(c), ticks:tickOpts(c), beginAtZero:true}, y:{grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}}} }
     }
   });
 }
 
 // ── Overdue by project ──
-function buildOverdue(){
+function buildOverdue() {
   const c = gc();
   const el = document.getElementById('overdueChart');
-  if(!el || !overdueCounts.length) return;
+  if (!el) return;
   new Chart(el, {
-    type: 'bar',
-    data: {
-      labels: overdueLabels,
-      datasets: [{
-        label: 'Просрочено',
-        data: overdueCounts,
-        backgroundColor: c.red + '77',
-        borderColor: c.red,
-        borderWidth: 1.5, borderRadius: 4,
-      }]
-    },
-    options: {
+    type:'bar',
+    data:{ labels:overdueLabels, datasets:[{ label:'Просрочено', data:overdueCounts, backgroundColor:c.red+'77', borderColor:c.red, borderWidth:1.5, borderRadius:4 }] },
+    options:{
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x} задач`}} },
-      scales: {
-        x: { grid:gridOpts(c), ticks:{...tickOpts(c), stepSize:1}, beginAtZero:true },
-        y: { grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}} },
-      }
+      plugins:{ legend:{display:false}, tooltip:{...tipOpts(c), callbacks:{label:ctx=>` ${ctx.parsed.x} задач`}} },
+      scales:{ x:{grid:gridOpts(c), ticks:{...tickOpts(c), stepSize:1}, beginAtZero:true}, y:{grid:{display:false}, ticks:{...tickOpts(c), font:{size:11}}} }
     }
   });
 }
 
-// Init
 buildMonthly();
 buildDaily();
-if(document.getElementById('statusChart')  && statusCounts.length)  buildStatus();
-if(document.getElementById('projectsChart') && projHours.length)    buildProjects();
-if(document.getElementById('overdueChart')  && overdueCounts.length) buildOverdue();
+if (statusCounts.length) buildStatus();
+if (projHours.length)    buildProjects();
+if (overdueCounts.length) buildOverdue();
 
-// Rebuild on theme switch
-window.__rebuildCharts = function(){
+window.__rebuildCharts = function() {
   buildMonthly(); buildDaily();
   ['statusChart','projectsChart','overdueChart'].forEach(id => {
     const el = document.getElementById(id);
-    if(el) Chart.getChart(el)?.destroy();
+    if (el) Chart.getChart(el)?.destroy();
   });
-  if(statusCounts.length)  buildStatus();
-  if(projHours.length)     buildProjects();
-  if(overdueCounts.length) buildOverdue();
+  if (statusCounts.length) buildStatus();
+  if (projHours.length)    buildProjects();
+  if (overdueCounts.length) buildOverdue();
 };
 </script>
-
 {% endblock %}
