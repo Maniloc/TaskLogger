@@ -15,12 +15,34 @@ from .utils import _jdumps, _month_key, _day_key
 def analytics(request):
     today = date.today()
 
-    # ── 1. Monthly dynamics — last 12 months ──
-    twelve_months_ago = (today.replace(day=1) - timedelta(days=335)).replace(day=1)
+    # ── Date range from GET params ──
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str   = request.GET.get('date_to', '')
+
+    try:
+        if date_from_str:
+            from datetime import datetime as _dt
+            range_start = _dt.strptime(date_from_str, '%Y-%m-%d').date()
+        else:
+            range_start = (today.replace(day=1) - timedelta(days=335)).replace(day=1)
+    except ValueError:
+        range_start = (today.replace(day=1) - timedelta(days=335)).replace(day=1)
+
+    try:
+        if date_to_str:
+            from datetime import datetime as _dt
+            range_end = _dt.strptime(date_to_str, '%Y-%m-%d').date()
+        else:
+            range_end = today
+    except ValueError:
+        range_end = today
+
+    # ── 1. Monthly dynamics ──
+    twelve_months_ago = range_start
 
     monthly_qs = (
         Task.objects
-        .filter(project__user=request.user, date__gte=twelve_months_ago)
+        .filter(project__user=request.user, date__gte=range_start, date__lte=range_end)
         .values('date__year', 'date__month')
         .annotate(count=Count('id'), hours=Sum('hours'))
         .order_by('date__year', 'date__month')
@@ -39,7 +61,7 @@ def analytics(request):
     monthly_counts = []
     monthly_hours = []
     cursor = twelve_months_ago
-    while cursor <= today.replace(day=1):
+    while cursor <= range_end.replace(day=1):
         key = cursor.strftime('%Y-%m')
         label = cursor.strftime('%b %Y')
         monthly_labels.append(label)
@@ -51,12 +73,13 @@ def analytics(request):
         else:
             cursor = cursor.replace(month=cursor.month + 1)
 
-    # ── 2. Daily activity — last 30 days ──
-    thirty_days_ago = today - timedelta(days=29)
+    # ── 2. Daily activity ──
+    thirty_days_ago = range_start
+    range_days = max(1, (range_end - range_start).days + 1)
 
     daily_qs = (
         Task.objects
-        .filter(project__user=request.user, date__gte=thirty_days_ago)
+        .filter(project__user=request.user, date__gte=range_start, date__lte=range_end)
         .values('date')
         .annotate(count=Count('id'), hours=Sum('hours'))
         .order_by('date')
@@ -73,7 +96,7 @@ def analytics(request):
     daily_labels = []
     daily_counts = []
     daily_hours = []
-    for i in range(30):
+    for i in range(range_days):
         d = thirty_days_ago + timedelta(days=i)
         key = d.strftime('%Y-%m-%d')
         daily_labels.append(d.strftime('%d.%m'))
@@ -128,7 +151,8 @@ def analytics(request):
             project__user=request.user,
             due_date__isnull=False,
             due_date__lt=today,
-            due_date__gte=twelve_months_ago,
+            due_date__gte=range_start,
+            due_date__lte=range_end,
         )
         .exclude(status=Task.STATUS_DONE)
         .values('due_date__year', 'due_date__month')
@@ -142,7 +166,7 @@ def analytics(request):
 
     monthly_overdue = []
     cursor2 = twelve_months_ago
-    while cursor2 <= today.replace(day=1):
+    while cursor2 <= range_end.replace(day=1):
         key = cursor2.strftime('%Y-%m')
         monthly_overdue.append(overdue_monthly_map.get(key, 0))
         if cursor2.month == 12:
@@ -156,7 +180,8 @@ def analytics(request):
         .filter(
             project__user=request.user,
             due_date__isnull=False,
-            due_date__gte=thirty_days_ago,
+            due_date__gte=range_start,
+            due_date__lte=range_end,
             due_date__lt=today,
         )
         .exclude(status=Task.STATUS_DONE)
@@ -166,7 +191,7 @@ def analytics(request):
     )
     overdue_daily_map = {str(r['due_date']): r['count'] for r in overdue_daily_qs}
     daily_overdue = []
-    for i in range(30):
+    for i in range(range_days):
         d = thirty_days_ago + timedelta(days=i)
         daily_overdue.append(overdue_daily_map.get(d.strftime('%Y-%m-%d'), 0))
 

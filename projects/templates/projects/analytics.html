@@ -5,9 +5,37 @@
 <div class="page-header">
   <div>
     <div class="page-title">аналитика</div>
-    <div class="page-sub">{{ today|date:"F Y" }}</div>
   </div>
+  <!-- Date range filter -->
+  <form method="get" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+    <div class="fg" style="margin:0">
+      <label>с</label>
+      <input type="date" name="date_from" value="{{ date_from }}" style="width:140px">
+    </div>
+    <div class="fg" style="margin:0">
+      <label>по</label>
+      <input type="date" name="date_to" value="{{ date_to }}" style="width:140px">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">применить</button>
+    <a href="{% url 'analytics' %}" class="btn btn-ghost btn-sm">сброс</a>
+    <!-- Quick presets -->
+    <div style="display:flex;gap:4px">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(7)">7д</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(30)">30д</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(90)">3м</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setPreset(365)">год</button>
+    </div>
+  </form>
 </div>
+<script>
+function setPreset(days) {
+  const to = new Date();
+  const from = new Date(to - days * 86400000);
+  document.querySelector('[name=date_from]').value = from.toISOString().slice(0,10);
+  document.querySelector('[name=date_to]').value   = to.toISOString().slice(0,10);
+  document.querySelector('form').submit();
+}
+</script>
 
 {% if total_all.count == 0 %}
 <div class="no-data-notice">

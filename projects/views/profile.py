@@ -29,15 +29,38 @@ def profile(request):
             return redirect('profile')
 
         # action == 'profile'
-        profile_obj.last_name   = request.POST.get('last_name', '').strip()
-        profile_obj.first_name  = request.POST.get('first_name', '').strip()
-        profile_obj.middle_name = request.POST.get('middle_name', '').strip()
-        profile_obj.position    = request.POST.get('position', '').strip()
-        profile_obj.department  = request.POST.get('department', '').strip()
+        profile_obj.last_name    = request.POST.get('last_name', '').strip()
+        profile_obj.first_name   = request.POST.get('first_name', '').strip()
+        profile_obj.middle_name  = request.POST.get('middle_name', '').strip()
+        profile_obj.position     = request.POST.get('position', '').strip()
+        profile_obj.department   = request.POST.get('department', '').strip()
+        profile_obj.avatar_color = request.POST.get('avatar_color', '').strip()
+        # Handle avatar upload
+        if 'avatar' in request.FILES:
+            # Delete old avatar
+            if profile_obj.avatar:
+                from django.core.files.storage import default_storage
+                try:
+                    default_storage.delete(profile_obj.avatar.name)
+                except Exception:
+                    pass
+            profile_obj.avatar = request.FILES['avatar']
+        elif request.POST.get('remove_avatar'):
+            if profile_obj.avatar:
+                from django.core.files.storage import default_storage
+                try:
+                    default_storage.delete(profile_obj.avatar.name)
+                except Exception:
+                    pass
+            profile_obj.avatar = None
         profile_obj.save()
         request.user.email = request.POST.get('email', '').strip()
         request.user.save(update_fields=['email'])
         messages.success(request, 'Профиль обновлён')
         return redirect('profile')
 
-    return render(request, 'projects/profile.html', {'profile': profile_obj})
+    AVATAR_COLORS = ['#5b7fff','#3dd68c','#f87171','#fbbf24','#a78bfa','#f472b6']
+    return render(request, 'projects/profile.html', {
+        'profile': profile_obj,
+        'avatar_colors': AVATAR_COLORS,
+    })

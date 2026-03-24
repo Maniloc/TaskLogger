@@ -187,3 +187,37 @@ def chat_unread(request):
         .count()
     )
     return JsonResponse({'unread': count})
+
+
+@login_required
+@require_POST
+def chat_edit(request, msg_id):
+    """Edit own message text."""
+    msg = get_object_or_404(Message, pk=msg_id, sender=request.user)
+    try:
+        data = json.loads(request.body)
+        text = data.get('text', '').strip()
+    except (json.JSONDecodeError, AttributeError):
+        text = ''
+    if not text:
+        return JsonResponse({'error': 'empty'}, status=400)
+    if len(text) > 4000:
+        return JsonResponse({'error': 'too_long'}, status=400)
+    msg.text = text
+    msg.save(update_fields=['text'])
+    return JsonResponse({'id': msg.pk, 'text': msg.text})
+
+
+@login_required
+@require_POST
+def chat_delete(request, msg_id):
+    """Delete own message."""
+    msg = get_object_or_404(Message, pk=msg_id, sender=request.user)
+    # Delete file from storage if exists
+    if msg.file:
+        try:
+            default_storage.delete(msg.file.name)
+        except Exception:
+            pass
+    msg.delete()
+    return JsonResponse({'id': msg_id, 'deleted': True})

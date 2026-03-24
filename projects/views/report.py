@@ -77,35 +77,69 @@ def _group_tasks(tasks_list, group_by):
 
 
 def _export_xlsx(tasks_list, date_from, date_to):
+    from openpyxl.styles import Border, Side, GradientFill
+    from openpyxl.utils import get_column_letter
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Отчёт'
 
-    hf = Font(bold=True, color='FFFFFF', size=11)
-    hfill = PatternFill(start_color='1C1C1A', end_color='1C1C1A', fill_type='solid')
-    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    wrap = Alignment(wrap_text=True, vertical='top')
-    even_fill = PatternFill(start_color='F5F5F3', end_color='F5F5F3', fill_type='solid')
+    # ── Design tokens ──
+    COLOR_ACCENT     = '1E40AF'   # deep blue for header
+    COLOR_ACCENT_LIGHT = 'DBEAFE' # light blue for accents
+    COLOR_ROW_ODD    = 'FFFFFF'
+    COLOR_ROW_EVEN   = 'F8FAFF'   # very light blue tint
+    COLOR_TOTAL_BG   = 'EFF6FF'
+    COLOR_DONE       = '065F46'   # green text for done status
+    COLOR_OVERDUE    = '991B1B'   # red text for overdue
 
-    headers = ['Дата', 'Проект', 'Задача', 'Статус', 'Инициатор', 'Часы', 'Обоснование']
-    widths = [12, 24, 50, 16, 24, 8, 40]
+    thin_border = Border(
+        left=Side(style='thin', color='E2E8F0'),
+        right=Side(style='thin', color='E2E8F0'),
+        top=Side(style='thin', color='E2E8F0'),
+        bottom=Side(style='thin', color='E2E8F0'),
+    )
+    thick_bottom = Border(
+        left=Side(style='thin', color='E2E8F0'),
+        right=Side(style='thin', color='E2E8F0'),
+        top=Side(style='thin', color='E2E8F0'),
+        bottom=Side(style='medium', color=COLOR_ACCENT),
+    )
 
-    ws.row_dimensions[1].height = 22
+    # ── Header row ──
+    hfont  = Font(bold=True, color='FFFFFF', size=11, name='Calibri')
+    hfill  = PatternFill(start_color=COLOR_ACCENT, end_color=COLOR_ACCENT, fill_type='solid')
+    halign = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    wrap   = Alignment(wrap_text=True, vertical='top')
+    left   = Alignment(wrap_text=True, vertical='top', horizontal='left')
+
+    headers = ['Дата', 'Проект', 'Задача / описание', 'Статус', 'Инициатор', 'Часы', 'Обоснование']
+    widths  = [13, 26, 52, 18, 24, 9, 42]
+
+    ws.row_dimensions[1].height = 26
     for i, (h, w) in enumerate(zip(headers, widths), 1):
         c = ws.cell(row=1, column=i, value=h)
-        c.font = hf
-        c.fill = hfill
-        c.alignment = center
-        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+        c.font   = hfont
+        c.fill   = hfill
+        c.alignment = halign
+        c.border = thick_bottom
+        ws.column_dimensions[get_column_letter(i)].width = w
 
-    status_map = dict(Task.STATUS_CHOICES)
-    total_hours = Decimal('0')
+    # ── Data rows ──
+    status_map   = dict(Task.STATUS_CHOICES)
+    total_hours  = Decimal('0')
+    odd_fill     = PatternFill(start_color=COLOR_ROW_ODD,  end_color=COLOR_ROW_ODD,  fill_type='solid')
+    even_fill    = PatternFill(start_color=COLOR_ROW_EVEN, end_color=COLOR_ROW_EVEN, fill_type='solid')
+
+    from datetime import date as _date
+    today = _date.today()
 
     for ri, task in enumerate(tasks_list, 2):
         h = task.hours or None
         if h:
             total_hours += h
-        row = [
+
+        row_data = [
             task.date.strftime('%d.%m.%Y'),
             task.project.name,
             task.task,
@@ -114,17 +148,42 @@ def _export_xlsx(tasks_list, date_from, date_to):
             float(h) if h else '—',
             task.basis or '—',
         ]
-        ws.row_dimensions[ri].height = 40
-        for ci, val in enumerate(row, 1):
-            c = ws.cell(row=ri, column=ci, value=val)
-            c.alignment = wrap
-            if ri % 2 == 0:
-                c.fill = even_fill
+        fill = even_fill if ri % 2 == 0 else odd_fill
+        ws.row_dimensions[ri].height = 36
 
-    # Summary
+        for ci, val in enumerate(row_data, 1):
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill   = fill
+            c.border = thin_border
+            c.alignment = left if ci in (3, 7) else Alignment(vertical='top', horizontal='center' if ci in (1,4,6) else 'left')
+
+            # Color status cell
+            if ci == 4:
+                if task.status == Task.STATUS_DONE:
+                    c.font = Font(color=COLOR_DONE, name='Calibri')
+                elif task.due_date and task.due_date < today and task.status != Task.STATUS_DONE:
+                    c.font = Font(color=COLOR_OVERDUE, bold=True, name='Calibri')
+
+    # ── Summary row ──
     sr = len(tasks_list) + 2
-    ws.cell(row=sr, column=1, value='Итого').font = Font(bold=True)
-    ws.cell(row=sr, column=6, value=float(total_hours)).font = Font(bold=True)
+    ws.row_dimensions[sr].height = 22
+    total_fill = PatternFill(start_color=COLOR_TOTAL_BG, end_color=COLOR_TOTAL_BG, fill_type='solid')
+    summary_border = Border(
+        top=Side(style='medium', color=COLOR_ACCENT),
+        bottom=Side(style='thin', color='E2E8F0'),
+    )
+    for ci in range(1, 8):
+        c = ws.cell(row=sr, column=ci)
+        c.fill   = total_fill
+        c.border = summary_border
+    ws.cell(row=sr, column=1, value='Итого:').font  = Font(bold=True, color=COLOR_ACCENT, name='Calibri')
+    ws.cell(row=sr, column=1).alignment = Alignment(horizontal='right', vertical='center')
+    total_cell = ws.cell(row=sr, column=6, value=float(total_hours))
+    total_cell.font      = Font(bold=True, color=COLOR_ACCENT, name='Calibri')
+    total_cell.alignment = Alignment(horizontal='center', vertical='center')
+    count_cell = ws.cell(row=sr, column=3, value=f'Задач: {len(tasks_list)}')
+    count_cell.font      = Font(color='64748B', name='Calibri')
+    count_cell.alignment = Alignment(horizontal='left', vertical='center')
 
     ws.freeze_panes = 'A2'
     ws.auto_filter.ref = f'A1:G{len(tasks_list) + 1}'

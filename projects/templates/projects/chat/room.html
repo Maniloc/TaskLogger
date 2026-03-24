@@ -173,6 +173,51 @@
 .msg-file-size { font-size:11px;color:var(--text3);margin-top:1px; }
 .msg-row.mine .msg-file-size { color:rgba(255,255,255,.6); }
 
+.msg-row { position: relative; }
+.msg-actions {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: 48px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  z-index: 10;
+}
+.msg-row.mine .msg-actions { right: auto; left: 48px; }
+.msg-row:hover .msg-actions { display: flex; }
+.msg-action-btn {
+  padding: 4px 8px; border-radius: 5px; font-size: 11px;
+  border: none; cursor: pointer; background: none;
+  color: var(--text2); font-family: inherit;
+  transition: background .1s, color .1s;
+}
+.msg-action-btn:hover { background: var(--surface); }
+.msg-action-btn.danger:hover { background: rgba(248,113,113,.15); color: var(--red); }
+
+.msg-editing .msg-bubble { display: none; }
+.msg-edit-form {
+  display: none; flex: 1;
+}
+.msg-editing .msg-edit-form { display: flex; gap: 6px; align-items: flex-end; }
+.msg-edit-input {
+  flex: 1; padding: 7px 11px;
+  background: var(--bg3); border: 1px solid var(--accent);
+  border-radius: 10px; color: var(--text); font-size: 14px;
+  font-family: inherit; outline: none; resize: none;
+  line-height: 1.45;
+}
+.msg-edit-save, .msg-edit-cancel {
+  padding: 6px 10px; border-radius: 7px; font-size: 12px;
+  border: 1px solid var(--border2); cursor: pointer;
+  font-family: inherit; background: none;
+}
+.msg-edit-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+.msg-edit-cancel { color: var(--text3); }
+
 /* emoji-mart theme override */
 #emoji-picker-wrap em-emoji-picker {
   --background-rgb: var(--bg3);
@@ -389,10 +434,21 @@ function renderMsg(m) {
   row.dataset.date = m.date;
   let content = m.text ? `<span class="msg-text">${escHtml(m.text)}</span>` : '';
   if (m.file) content += renderFileBlock(m.file, m.mine);
+  const actions = m.mine ? `
+    <div class="msg-actions">
+      <button class="msg-action-btn" onclick="startEdit(${m.id}, this)" title="Редактировать">✏️</button>
+      <button class="msg-action-btn danger" onclick="deleteMsg(${m.id}, this)" title="Удалить">🗑</button>
+    </div>` : '';
   row.innerHTML = `
     <div class="msg-av">${m.sender[0].toUpperCase()}</div>
     <div class="msg-bubble">${content}</div>
     <span class="msg-time">${m.created_at}</span>
+    ${actions}
+    <div class="msg-edit-form">
+      <textarea class="msg-edit-input" rows="1"></textarea>
+      <button class="msg-edit-save" onclick="saveEdit(${m.id}, this)">✓</button>
+      <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>
+    </div>
   `;
   msgs.appendChild(row);
 }
@@ -447,6 +503,86 @@ document.querySelectorAll('.msg-row').forEach(row => {
 // ══════════════════════════════════
 // Polling
 // ══════════════════════════════════
+// ── Edit/Delete message ──
+const EDIT_URL   = id => `/chat/msg/${id}/edit/`;
+const DELETE_URL = id => `/chat/msg/${id}/delete/`;
+
+function startEdit(msgId, btn) {
+  const row = btn.closest('.msg-row');
+  const bubble = row.querySelector('.msg-bubble');
+  const textEl = bubble.querySelector('.msg-text');
+  const editForm = row.querySelector('.msg-edit-form');
+  const input = editForm.querySelector('.msg-edit-input');
+  input.value = textEl ? textEl.textContent : '';
+  row.classList.add('msg-editing');
+  input.focus();
+  input.style.height = 'auto';
+  input.style.height = input.scrollHeight + 'px';
+  input.addEventListener('keydown', function handler(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(msgId, input); }
+    if (e.key === 'Escape') cancelEdit(input);
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+}
+
+function cancelEdit(el) {
+  el.closest('.msg-row').classList.remove('msg-editing');
+}
+
+async function saveEdit(msgId, el) {
+  const row = el.closest('.msg-row');
+  const input = row.querySelector('.msg-edit-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const res = await fetch(EDIT_URL(msgId), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({text}),
+  });
+  if (res.ok) {
+    const textEl = row.querySelector('.msg-text');
+    if (textEl) textEl.innerHTML = escHtml(text);
+    row.classList.remove('msg-editing');
+  }
+}
+
+async function deleteMsg(msgId, btn) {
+  if (!confirm('Удалить сообщение?')) return;
+  const res = await fetch(DELETE_URL(msgId), {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF},
+  });
+  if (res.ok) {
+    const row = btn.closest('.msg-row');
+    row.style.opacity = '0';
+    row.style.transition = 'opacity .2s';
+    setTimeout(() => row.remove(), 200);
+  }
+}
+
+// Add actions to existing messages (rendered server-side)
+document.querySelectorAll('.msg-row.mine').forEach(row => {
+  const msgId = row.dataset.id;
+  if (!row.querySelector('.msg-actions')) {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = `
+      <button class="msg-action-btn" onclick="startEdit(${msgId}, this)" title="Редактировать">✏️</button>
+      <button class="msg-action-btn danger" onclick="deleteMsg(${msgId}, this)" title="Удалить">🗑</button>`;
+    const editForm = document.createElement('div');
+    editForm.className = 'msg-edit-form';
+    editForm.innerHTML = `
+      <textarea class="msg-edit-input" rows="1"></textarea>
+      <button class="msg-edit-save" onclick="saveEdit(${msgId}, this)">✓</button>
+      <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>`;
+    row.appendChild(actions);
+    row.appendChild(editForm);
+  }
+});
+
 async function poll() {
   try {
     const res = await fetch(`${POLL_URL}?since=${lastId}`);

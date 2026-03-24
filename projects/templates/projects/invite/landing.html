@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark-slate">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Приглашение — TaskLogger</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[data-theme="dark-slate"] {
+  --bg:#0d1117; --bg2:#161b27; --bg3:#1c2235;
+  --border:#2a3350; --text:#f0f4ff; --text2:#a8b4d0; --text3:#6b7a9a;
+  --accent:#5b7fff; --green:#3dd68c; --red:#f87171;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1.5rem; }
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:2rem; width:100%; max-width:440px; }
+.logo { font-size:22px; font-weight:700; color:var(--text); margin-bottom:.25rem; }
+.logo em { color:var(--accent); font-style:normal; }
+.subtitle { font-size:13px; color:var(--text3); margin-bottom:1.75rem; line-height:1.6; }
+.fg { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+label { font-size:12px; color:var(--text3); font-weight:500; }
+input { width:100%; padding:9px 12px; font-size:14px; font-family:inherit; background:var(--bg3); border:1px solid var(--border); border-radius:7px; color:var(--text); outline:none; }
+input:focus { border-color:var(--accent); }
+.btn { width:100%; padding:10px; font-size:14px; font-weight:500; background:var(--accent); color:#fff; border:none; border-radius:8px; cursor:pointer; margin-top:8px; transition:opacity .12s; }
+.btn:hover { opacity:.88; }
+.error { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:var(--red); border-radius:7px; padding:8px 12px; font-size:13px; margin-bottom:12px; }
+.divider { height:1px; background:var(--border); margin:1.25rem 0; }
+.section-label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+.invited-by { font-size:13px; color:var(--text2); margin-bottom:1.25rem; padding:10px 14px; background:var(--bg3); border-radius:8px; border-left:3px solid var(--accent); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">tt<em>/</em></div>
+  <div class="subtitle">
+    TaskLogger — система учёта рабочих задач и формирования отчётов.<br>
+    Вас приглашают присоединиться к команде.
+  </div>
+
+  <div class="invited-by">
+    Приглашение от: <strong>{% if invite.created_by.profile.display_name %}{{ invite.created_by.profile.display_name }}{% else %}{{ invite.created_by.username }}{% endif %}</strong><br>
+    <span style="font-size:12px;color:var(--text3)">Действует до: {{ invite.expires_at|date:"d.m.Y H:i" }}</span>
+  </div>
+
+  {% if errors %}
+  <div class="error">{% for e in errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="section-label">данные для входа</div>
+    <div class="fg"><label>логин *</label><input type="text" name="username" value="{{ form.username|default:'' }}" required autocomplete="username"></div>
+    <div class="fg"><label>пароль * (мин. 8 символов)</label><input type="password" name="password" required autocomplete="new-password"></div>
+    <div class="fg"><label>повторите пароль *</label><input type="password" name="password2" required autocomplete="new-password"></div>
+
+    <div class="divider"></div>
+    <div class="section-label">профиль</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="margin:0"><label>фамилия</label><input type="text" name="last_name" value="{{ form.last_name|default:'' }}"></div>
+      <div class="fg" style="margin:0"><label>имя</label><input type="text" name="first_name" value="{{ form.first_name|default:'' }}"></div>
+    </div>
+    <div class="fg" style="margin-top:10px"><label>отчество</label><input type="text" name="middle_name" value="{{ form.middle_name|default:'' }}"></div>
+    <div class="fg"><label>должность</label><input type="text" name="position" value="{{ form.position|default:'' }}" placeholder="Главный специалист"></div>
+
+    <button type="submit" class="btn">Зарегистрироваться и войти</button>
+  </form>
+</div>
+</body>
+</html>

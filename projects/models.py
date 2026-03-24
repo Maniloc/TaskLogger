@@ -110,6 +110,8 @@ class UserProfile(models.Model):
     middle_name= models.CharField('Отчество',   max_length=100, blank=True)
     position   = models.CharField('Должность',  max_length=200, blank=True)
     department = models.CharField('Отдел',      max_length=200, blank=True)
+    avatar     = models.ImageField('Аватар', upload_to='avatars/', null=True, blank=True)
+    avatar_color = models.CharField('Цвет аватара', max_length=7, blank=True, default='')
 
     class Meta:
         verbose_name = 'Профиль'
@@ -191,3 +193,34 @@ class Message(models.Model):
 
     def __str__(self):
         return f'{self.sender.username}: {self.text[:40]}'
+
+
+class InviteToken(models.Model):
+    token      = models.CharField('Токен', max_length=64, unique=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE,
+                                   related_name='invites', verbose_name='Создан кем')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField('Действует до')
+    used       = models.BooleanField(default=False)
+    used_by    = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='invite_used',
+                                   verbose_name='Использован кем')
+
+    class Meta:
+        verbose_name = 'Приглашение'
+        verbose_name_plural = 'Приглашения'
+
+    def is_valid(self):
+        from django.utils import timezone
+        return not self.used and self.expires_at > timezone.now()
+
+    @classmethod
+    def generate(cls, user, days=7):
+        import secrets
+        from django.utils import timezone
+        from datetime import timedelta
+        return cls.objects.create(
+            token=secrets.token_urlsafe(32),
+            created_by=user,
+            expires_at=timezone.now() + timedelta(days=days),
+        )
