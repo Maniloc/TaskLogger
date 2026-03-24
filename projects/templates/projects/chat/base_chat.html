@@ -9,6 +9,7 @@
   gap: 0;
   height: calc(100vh - 52px - 3.5rem);
   min-height: 500px;
+  max-height: calc(100vh - 52px - 3.5rem);
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -21,6 +22,8 @@
   display: flex;
   flex-direction: column;
   background: var(--bg2);
+  overflow: hidden;
+  min-height: 0;
 }
 .chat-sidebar-header {
   padding: 14px 16px 10px;
@@ -72,7 +75,7 @@
 .chat-user-name { font-size: 13px; color: var(--text); }
 
 /* Conversation list */
-.chat-conv-list { flex: 1; overflow-y: auto; }
+.chat-conv-list { flex: 1; overflow-y: auto; min-height: 0; }
 .chat-conv-item {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 11px 14px; cursor: pointer; text-decoration: none;
@@ -106,6 +109,8 @@
 /* ── Main chat area ── */
 .chat-main {
   display: flex; flex-direction: column; background: var(--bg);
+  overflow: hidden; /* prevents expansion beyond grid cell */
+  min-height: 0;    /* critical: allows flex child to shrink below content size */
 }
 .chat-main-header {
   padding: 12px 18px;
@@ -120,6 +125,7 @@
 .chat-messages {
   flex: 1; overflow-y: auto; padding: 16px 18px;
   display: flex; flex-direction: column; gap: 4px;
+  min-height: 0; /* critical for flex scroll */
 }
 .chat-day-sep {
   text-align: center; font-size: 11px; color: var(--text3);
@@ -207,6 +213,15 @@
   .chat-layout { grid-template-columns: 1fr; height: auto; }
   .chat-sidebar { display: none; }
 }
+
+/* Remove container padding on chat pages so layout fills viewport correctly */
+body:has(.chat-layout) .container {
+  padding-top: 0.75rem;
+  padding-bottom: 0;
+}
+
+/* Also fix room.html drop overlay positioning */
+.chat-main { position: relative; }
 </style>
 
 {% block chat_content %}{% endblock %}
