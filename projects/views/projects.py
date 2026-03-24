@@ -68,6 +68,7 @@ def project_detail(request, pk):
     paginator = Paginator(tasks, getattr(settings, 'TASKS_PER_PAGE', 25))
     page_obj = paginator.get_page(request.GET.get('page'))
 
+    from ..models import ProjectMember as _PM
     return render(request, 'projects/project_detail.html', {
         'project': project,
         'page_obj': page_obj,
@@ -78,6 +79,8 @@ def project_detail(request, pk):
         'total_hours': total_hours,
         'status_choices': Task.STATUS_CHOICES,
         'project_total_hours': project.total_hours(),
+        'member_count':        _PM.objects.filter(project=project).count(),
+        'project_members_list': _PM.objects.filter(project=project).select_related('user','user__profile'),
     })
 
 

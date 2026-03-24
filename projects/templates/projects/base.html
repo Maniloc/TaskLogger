@@ -624,6 +624,9 @@ select option { background: var(--bg3); color: var(--text); }
     <a href="{% url 'index' %}" {% if request.resolver_match.url_name == 'index' %}class="active"{% endif %}>дашборд</a>
     <a href="{% url 'analytics' %}" {% if request.resolver_match.url_name == 'analytics' %}class="active"{% endif %}>аналитика</a>
     <a href="{% url 'projects_list' %}" {% if request.resolver_match.url_name == 'projects_list' %}class="active"{% endif %}>проекты</a>
+    {% if user.project_memberships.exists %}
+    <a href="{% url 'my_tasks' %}" {% if request.resolver_match.url_name == 'my_tasks' or request.resolver_match.url_name == 'shared_project_detail' %}class="active"{% endif %}>мои задачи</a>
+    {% endif %}
     <a href="{% url 'report' %}" {% if request.resolver_match.url_name == 'report' %}class="active"{% endif %}>отчёт</a>
     {% if user.is_superuser %}
     <a href="{% url 'admin_panel' %}" {% if request.resolver_match.url_name == 'admin_panel' or request.resolver_match.url_name == 'admin_user_detail' %}class="active"{% endif %} style="color:var(--amber)">панель</a>

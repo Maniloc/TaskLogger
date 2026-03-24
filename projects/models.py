@@ -55,6 +55,10 @@ class Task(models.Model):
     )
     start_date = models.DateField('Дата начала', null=True, blank=True)
     due_date   = models.DateField('Крайний срок', null=True, blank=True)
+    assigned_to = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assigned_tasks', verbose_name='Назначен'
+    )
     basis = models.TextField('Обоснование', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -237,6 +241,39 @@ class ConversationSettings(models.Model):
 
     def __str__(self):
         return f'{self.user.username} / {self.conversation_id} muted={self.is_muted}'
+
+
+
+class ProjectMember(models.Model):
+    ROLE_OWNER    = 'owner'
+    ROLE_EXECUTOR = 'executor'
+    ROLE_OBSERVER = 'observer'
+    ROLE_CHOICES  = [
+        (ROLE_OWNER,    'Владелец'),
+        (ROLE_EXECUTOR, 'Исполнитель'),
+        (ROLE_OBSERVER, 'Наблюдатель'),
+    ]
+
+    project   = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='members')
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_memberships')
+    role      = models.CharField('Роль', max_length=20, choices=ROLE_CHOICES, default=ROLE_EXECUTOR)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('project', 'user')
+        verbose_name = 'Участник проекта'
+        verbose_name_plural = 'Участники проекта'
+
+    def __str__(self):
+        return f'{self.user.username} → {self.project.name} [{self.role}]'
+
+    @property
+    def can_add_tasks(self):
+        return self.role in (self.ROLE_OWNER, self.ROLE_EXECUTOR)
+
+    @property
+    def can_edit_all(self):
+        return self.role == self.ROLE_OWNER
 
 
 class InviteToken(models.Model):

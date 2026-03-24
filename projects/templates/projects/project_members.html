@@ -1,0 +1,119 @@
+{% extends 'projects/base.html' %}
+{% block title %}Участники — {{ project.name }}{% endblock %}
+{% block content %}
+
+<div class="breadcrumb">
+  <a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a><span>›</span>участники
+</div>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">участники проекта</div>
+    <div class="page-sub">{{ project.name }}</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:1.25rem">
+
+  <!-- Current members -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+      <div class="card-title" style="margin-bottom:0">участники ({{ members.count }})</div>
+    </div>
+
+    <!-- Project owner (always shown) -->
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--accent-bg)">
+      {% if project.user.profile.avatar %}
+      <img src="{{ project.user.profile.avatar.url }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      {% else %}
+      <div style="width:36px;height:36px;border-radius:50%;background:{% if project.user.profile.avatar_color %}{{ project.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">{{ project.user.profile.initials|default:project.user.username|first|upper }}</div>
+      {% endif %}
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:var(--text)">{% if project.user.profile.full_name %}{{ project.user.profile.full_name }}{% else %}{{ project.user.username }}{% endif %}</div>
+        <div style="font-size:12px;color:var(--text3)">@{{ project.user.username }}{% if project.user.profile.position %} · {{ project.user.profile.position }}{% endif %}</div>
+      </div>
+      <span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber)">Владелец</span>
+    </div>
+
+    {% for m in members %}
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border)" id="member-{{ m.pk }}">
+      {% if m.user.profile.avatar %}
+      <img src="{{ m.user.profile.avatar.url }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      {% else %}
+      <div style="width:36px;height:36px;border-radius:50%;background:{% if m.user.profile.avatar_color %}{{ m.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">{{ m.user.profile.initials|default:m.user.username|first|upper }}</div>
+      {% endif %}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--text)">{% if m.user.profile.full_name %}{{ m.user.profile.full_name }}{% else %}{{ m.user.username }}{% endif %}</div>
+        <div style="font-size:12px;color:var(--text3)">@{{ m.user.username }}{% if m.user.profile.position %} · {{ m.user.profile.position }}{% endif %}</div>
+      </div>
+      <!-- Role selector -->
+      <select onchange="changeRole({{ m.pk }}, {{ project.pk }}, {{ m.user.pk }}, this.value)"
+              style="font-size:12px;padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;cursor:pointer">
+        {% for val, label in role_choices %}
+        <option value="{{ val }}"{% if val == m.role %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <!-- Remove -->
+      <form method="post" action="{% url 'member_remove' project.pk m.user.pk %}"
+            onsubmit="return confirm('Удалить {{ m.user.username }} из проекта?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger btn-sm" style="padding:4px 10px;font-size:12px">удалить</button>
+      </form>
+    </div>
+    {% empty %}
+    <div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:13px">
+      Нет участников. Добавьте коллег справа.
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Add member -->
+  <div>
+    <div class="card">
+      <div class="card-title">добавить участника</div>
+      <form method="post" action="{% url 'member_add' project.pk %}">
+        {% csrf_token %}
+        <div class="fg" style="margin-bottom:10px">
+          <label>пользователь *</label>
+          <select name="user_id" required>
+            <option value="">— выберите —</option>
+            {% for u in available_users %}
+            <option value="{{ u.pk }}">{% if u.profile.full_name %}{{ u.profile.full_name }} (@{{ u.username }}){% else %}{{ u.username }}{% endif %}</option>
+            {% endfor %}
+          </select>
+          {% if not available_users %}<div class="field-hint">Все пользователи уже участники</div>{% endif %}
+        </div>
+        <div class="fg" style="margin-bottom:14px">
+          <label>роль</label>
+          <select name="role">
+            {% for val, label in role_choices %}
+            <option value="{{ val }}"{% if val == 'executor' %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" {% if not available_users %}disabled{% endif %}>добавить</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:1rem;font-size:13px;color:var(--text2);line-height:1.7">
+      <div class="card-title">роли</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div><span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber)">Владелец</span><div style="font-size:12px;color:var(--text3);margin-top:3px">Полный контроль — управляет участниками, редактирует всё</div></div>
+        <div><span class="badge b-status-in_progress">Исполнитель</span><div style="font-size:12px;color:var(--text3);margin-top:3px">Создаёт задачи, видит все, редактирует только свои</div></div>
+        <div><span class="badge b-date">Наблюдатель</span><div style="font-size:12px;color:var(--text3);margin-top:3px">Только просмотр задач и отчётов, может оставлять комментарии</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function changeRole(memberId, projectId, userId, role) {
+  const res = await fetch(`/projects/${projectId}/members/${userId}/role/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}'},
+    body: `role=${role}`,
+  });
+  if (!res.ok) alert('Ошибка при смене роли');
+}
+</script>
+{% endblock %}

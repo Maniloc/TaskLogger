@@ -35,6 +35,17 @@ def report(request):
         tasks = tasks.filter(date__lte=date_to)
     if project_id:
         tasks = tasks.filter(project_id=project_id)
+        # If user is a member (not owner) of this project — show only own tasks
+        from ..models import ProjectMember as _PM
+        proj = Project.objects.filter(pk=project_id).first()
+        if proj and proj.user != request.user:
+            m = _PM.objects.filter(project_id=project_id, user=request.user).first()
+            if m:  # participant: show only own tasks
+                tasks = tasks.filter(
+                    __import__('django.db.models', fromlist=['Q']).Q(assigned_to=request.user) |
+                    __import__('django.db.models', fromlist=['Q']).Q(assigned_to__isnull=True,
+                        project__user=request.user)
+                )
 
     tasks = tasks.order_by('date', 'project__name')
 

@@ -1,0 +1,118 @@
+{% extends 'projects/base.html' %}
+{% block title %}{{ project.name }} — TaskLogger{% endblock %}
+{% block content %}
+
+<div class="breadcrumb">
+  <a href="{% url 'my_tasks' %}">мои задачи</a><span>›</span>{{ project.name }}
+</div>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ project.name }}</div>
+    <div class="page-sub">
+      владелец: {{ project.user.username }}
+      · ваша роль: <strong>{{ membership.get_role_display }}</strong>
+    </div>
+  </div>
+  {% if can_add %}
+  <button class="btn btn-primary btn-sm" onclick="document.getElementById('add-task-form').style.display=document.getElementById('add-task-form').style.display==='none'?'block':'none'">+ задача</button>
+  {% endif %}
+</div>
+
+<!-- Add task form (executor/owner only) -->
+{% if can_add %}
+<div id="add-task-form" style="display:none;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="card-title">добавить задачу</div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="fg"><label>дата *</label><input type="date" name="date" value="{% now 'Y-m-d' %}" required></div>
+        <div class="fg">
+          <label>статус</label>
+          <select name="status">
+            {% for val,label in status_choices %}
+            <option value="{{ val }}"{% if val == 'in_progress' %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg">
+          <label>назначить</label>
+          <select name="assigned_to">
+            <option value="">— не назначено —</option>
+            {% for u in member_users %}
+            <option value="{{ u.pk }}"{% if u == request.user %} selected{% endif %}>
+              {% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg"><label>часы</label><input type="text" name="hours" placeholder="2.5 или 2ч30м"></div>
+        <div class="fg full"><label>задача *</label><textarea name="task" required></textarea></div>
+        <div class="fg full"><label>обоснование</label><input type="text" name="basis" placeholder="Номер письма, ссылка..."></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button type="submit" class="btn btn-primary">сохранить</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-task-form').style.display='none'">отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Participants strip -->
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem;align-items:center">
+  <span style="font-size:12px;color:var(--text3)">участники:</span>
+  <!-- Owner -->
+  <div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:rgba(251,191,36,.1);border-radius:20px">
+    {% if project.user.profile.avatar %}<img src="{{ project.user.profile.avatar.url }}" style="width:18px;height:18px;border-radius:50%;object-fit:cover">
+    {% else %}<div style="width:18px;height:18px;border-radius:50%;background:{% if project.user.profile.avatar_color %}{{ project.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ project.user.username|first|upper }}</div>{% endif %}
+    <span style="font-size:12px;color:var(--text2)">{{ project.user.username }}</span>
+    <span style="font-size:10px;color:var(--amber)">владелец</span>
+  </div>
+  {% for m in members %}
+  <div style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg3);border-radius:20px;border:1px solid var(--border)">
+    {% if m.user.profile.avatar %}<img src="{{ m.user.profile.avatar.url }}" style="width:18px;height:18px;border-radius:50%;object-fit:cover">
+    {% else %}<div style="width:18px;height:18px;border-radius:50%;background:{% if m.user.profile.avatar_color %}{{ m.user.profile.avatar_color }}{% else %}var(--surface){% endif %};color:var(--text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ m.user.username|first|upper }}</div>{% endif %}
+    <span style="font-size:12px;color:var(--text2)">{{ m.user.username }}</span>
+    <span style="font-size:10px;color:var(--text3)">{{ m.get_role_display }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Tasks -->
+{% if tasks %}
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div class="card-title" style="margin-bottom:0">задачи ({{ tasks.count }})</div>
+  </div>
+  {% for task in tasks %}
+  <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 18px;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
+    <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;color:var(--text);line-height:1.5">{{ task.task }}</div>
+      <div class="task-meta">
+        <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+        {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+        {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+        <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
+        {% if task.assigned_to %}
+        <span class="badge b-proj" style="display:inline-flex;align-items:center;gap:4px">
+          → {% if task.assigned_to.profile.display_name %}{{ task.assigned_to.profile.display_name }}{% else %}{{ task.assigned_to.username }}{% endif %}
+        </span>
+        {% endif %}
+        {% if task.due_date and task.urgency == 'overdue' %}<span class="badge" style="background:rgba(248,113,113,.15);color:var(--red)">просрочено</span>{% endif %}
+      </div>
+      {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+    </div>
+    <!-- Edit: only own tasks or owner role -->
+    {% if can_edit or task.assigned_to == request.user %}
+    <a href="{% url 'task_edit' task.pk %}" class="btn btn-ghost btn-sm" style="flex-shrink:0">ред.</a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><div class="empty-icon">📋</div>Нет задач</div>
+{% endif %}
+{% endblock %}

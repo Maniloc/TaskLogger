@@ -82,9 +82,23 @@ def task_edit(request, pk):
         task.status = request.POST.get('status', task.status)
         task.initiator = request.POST.get('initiator', '').strip()
         task.hours = hours
-        task.start_date = request.POST.get('start_date', '').strip() or None
-        task.due_date   = request.POST.get('due_date', '').strip() or None
-        task.basis = request.POST.get('basis', '').strip()
+        task.start_date  = request.POST.get('start_date', '').strip() or None
+        task.due_date    = request.POST.get('due_date', '').strip() or None
+        task.basis       = request.POST.get('basis', '').strip()
+        assigned_id = request.POST.get('assigned_to', '').strip()
+        if assigned_id:
+            try:
+                from django.contrib.auth.models import User as _User
+                new_assignee = _User.objects.get(pk=int(assigned_id))
+                if task.assigned_to != new_assignee:
+                    task.assigned_to = new_assignee
+                    if new_assignee != request.user:
+                        from .members import _notify_assignment
+                        _notify_assignment(request.user, new_assignee, task)
+            except Exception:
+                task.assigned_to = None
+        elif 'assigned_to' in request.POST:
+            task.assigned_to = None
         task.save()
         messages.success(request, 'Задача обновлена')
         return redirect('project_detail', pk=task.project_id)

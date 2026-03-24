@@ -1,0 +1,112 @@
+{% extends 'projects/base.html' %}
+{% block title %}Мои задачи — TaskLogger{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">мои задачи</div>
+    <div class="page-sub">проекты где вы участник</div>
+  </div>
+  <a href="{% url 'index' %}" class="btn btn-ghost btn-sm">← мои проекты</a>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem">
+  <div class="stat-card">
+    <div class="stat-val">{{ memberships|length }}</div>
+    <div class="stat-lbl">проектов-участник</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ assigned_tasks|length }}</div>
+    <div class="stat-lbl">назначено мне</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ my_month.count|default:0 }}</div>
+    <div class="stat-lbl">задач в месяце</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ my_month.hours|default:0|floatformat:1 }}ч</div>
+    <div class="stat-lbl">часов в месяце</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:1.25rem">
+
+  <!-- Assigned to me -->
+  <div>
+    {% if assigned_tasks %}
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="card-title">назначено мне ({{ assigned_tasks|length }})</div>
+      {% for task in assigned_tasks %}
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
+        <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;color:var(--text)">{{ task.task|truncatechars:100 }}</div>
+          <div class="task-meta">
+            <span class="badge b-proj">{{ task.project.name }}</span>
+            <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+            {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+            {% if task.due_date %}
+              {% if task.urgency == 'overdue' %}<span class="badge" style="background:rgba(248,113,113,.15);color:var(--red)">просрочено</span>
+              {% elif task.urgency == 'today' %}<span class="badge" style="background:rgba(251,191,36,.12);color:var(--amber)">срок сегодня</span>
+              {% elif task.urgency == 'soon' %}<span class="badge" style="background:rgba(251,191,36,.07);color:var(--amber)">до {{ task.due_date|date:"d.m" }}</span>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+        <a href="{% url 'shared_project_detail' task.project.pk %}" class="btn btn-ghost btn-sm" style="flex-shrink:0">открыть</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Recent shared tasks -->
+    {% if shared_tasks %}
+    <div class="card">
+      <div class="card-title">последние задачи в совместных проектах</div>
+      {% for task in shared_tasks %}
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
+        <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--text)">{{ task.task|truncatechars:80 }}</div>
+          <div class="task-meta">
+            <span class="badge b-proj">{{ task.project.name }}</span>
+            <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+            {% if task.assigned_to %}<span class="badge b-init">→ {% if task.assigned_to.profile.display_name %}{{ task.assigned_to.profile.display_name }}{% else %}{{ task.assigned_to.username }}{% endif %}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not assigned_tasks and not shared_tasks %}
+    <div class="empty"><div class="empty-icon">✅</div>Нет активных задач</div>
+    {% endif %}
+  </div>
+
+  <!-- Shared projects list -->
+  <div>
+    <div class="card">
+      <div class="card-title">мои проекты-участника</div>
+      {% for m in memberships %}
+      <a href="{% url 'shared_project_detail' m.project.pk %}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);text-decoration:none" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity=''">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--text)">{{ m.project.name }}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">владелец: {{ m.project.user.username }}</div>
+        </div>
+        {% if m.role == 'owner' %}
+        <span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber);font-size:10px">Владелец</span>
+        {% elif m.role == 'executor' %}
+        <span class="badge b-status-in_progress" style="font-size:10px">Исполнитель</span>
+        {% else %}
+        <span class="badge b-date" style="font-size:10px">Наблюдатель</span>
+        {% endif %}
+      </a>
+      {% empty %}
+      <div style="font-size:13px;color:var(--text3);padding:8px 0">Вас пока не добавили ни в один проект</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

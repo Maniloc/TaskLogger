@@ -20,3 +20,4 @@ __all__ = [
 
 from .chat import chat_list, chat_open, chat_room, chat_send, chat_poll, chat_unread, chat_edit, chat_delete, chat_mute, chat_create_group
 from .invite import invite_create, invite_landing, invite_list, invite_delete
+from .members import project_members, member_add, member_remove, member_role, my_tasks, shared_project_detail
