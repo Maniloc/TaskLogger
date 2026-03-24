@@ -23,6 +23,7 @@ urlpatterns = [
     path('invite/create/', views.invite_create, name='invite_create'),
     path('invite/<str:token>/', views.invite_landing, name='invite_landing'),
     path('invite/', views.invite_list, name='invite_list'),
+    path('invite/<int:token_id>/delete/', views.invite_delete, name='invite_delete'),
     path('analytics/', views.analytics, name='analytics'),
     path('projects/', views.projects_list, name='projects_list'),
     path('profile/', views.profile, name='profile'),

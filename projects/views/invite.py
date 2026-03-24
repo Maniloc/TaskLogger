@@ -82,3 +82,16 @@ def invite_list(request):
     """Show created invites (admin panel use)."""
     invites = InviteToken.objects.filter(created_by=request.user).order_by('-created_at')[:20]
     return render(request, 'projects/invite/list.html', {'invites': invites})
+
+
+@login_required
+@require_POST
+def invite_delete(request, token_id):
+    """Delete an invite token (owner or superuser)."""
+    if request.user.is_superuser:
+        inv = get_object_or_404(InviteToken, pk=token_id)
+    else:
+        inv = get_object_or_404(InviteToken, pk=token_id, created_by=request.user)
+    inv.delete()
+    from django.http import JsonResponse
+    return JsonResponse({'deleted': True})

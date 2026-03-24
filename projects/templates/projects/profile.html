@@ -97,6 +97,42 @@
     </form>
   </div>
 
+  <!-- My invites -->
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem">
+      <div class="card-title" style="margin-bottom:0">мои приглашения</div>
+      <button class="btn btn-ghost btn-sm" onclick="openInviteModal()">+ создать</button>
+    </div>
+    {% if my_invites %}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      {% for inv in my_invites %}
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)" id="inv-{{ inv.pk }}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            /invite/{{ inv.token|slice:":12" }}...
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+            <span>создано {{ inv.created_at|date:"d.m.Y" }}</span>
+            <span>до {{ inv.expires_at|date:"d.m.Y H:i" }}</span>
+            {% if inv.used_by %}<span style="color:var(--green)">использовано: @{{ inv.used_by.username }}</span>
+            {% elif inv.is_valid %}<span style="color:var(--accent2)">активно</span>
+            {% else %}<span style="color:var(--text3)">истекло</span>{% endif %}
+          </div>
+        </div>
+        {% if inv.is_valid and not inv.used %}
+        <button onclick="copyInvUrl('{{ request.scheme }}://{{ request.get_host }}/invite/{{ inv.token }}/', this)"
+                class="btn btn-ghost btn-sm" style="white-space:nowrap;flex-shrink:0">копировать</button>
+        {% endif %}
+        <button onclick="deleteInv({{ inv.pk }})"
+                class="btn btn-danger btn-sm" style="flex-shrink:0">удалить</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="font-size:13px;color:var(--text3)">Приглашений пока нет. Нажмите «+ создать».</div>
+    {% endif %}
+  </div>
+
   <!-- Account info -->
   <div style="padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text3);line-height:1.7">
     Логин: <span style="color:var(--text2)">{{ user.username }}</span><br>
@@ -116,6 +152,30 @@ function previewAvatar(input) {
     };
     reader.readAsDataURL(input.files[0]);
   }
+}
+
+async function deleteInv(id) {
+  if (!confirm('Удалить приглашение? Ссылка перестанет работать.')) return;
+  const res = await fetch(`/invite/${id}/delete/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  });
+  if (res.ok) {
+    const el = document.getElementById('inv-' + id);
+    if (el) { el.style.opacity = '0'; el.style.transition = 'opacity .2s'; setTimeout(() => el.remove(), 200); }
+  }
+}
+function copyInvUrl(url, btn) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = 'скопировано!';
+    setTimeout(() => btn.textContent = 'копировать', 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+    btn.textContent = 'скопировано!';
+    setTimeout(() => btn.textContent = 'копировать', 2000);
+  });
 }
 </script>
 {% endblock %}

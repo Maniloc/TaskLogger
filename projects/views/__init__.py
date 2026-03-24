@@ -19,4 +19,4 @@ __all__ = [
 ]
 
 from .chat import chat_list, chat_open, chat_room, chat_send, chat_poll, chat_unread, chat_edit, chat_delete
-from .invite import invite_create, invite_landing, invite_list
+from .invite import invite_create, invite_landing, invite_list, invite_delete

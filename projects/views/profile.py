@@ -60,7 +60,10 @@ def profile(request):
         return redirect('profile')
 
     AVATAR_COLORS = ['#5b7fff','#3dd68c','#f87171','#fbbf24','#a78bfa','#f472b6']
+    from ..models import InviteToken
+    my_invites = InviteToken.objects.filter(created_by=request.user).order_by('-created_at')
     return render(request, 'projects/profile.html', {
         'profile': profile_obj,
         'avatar_colors': AVATAR_COLORS,
+        'my_invites': my_invites,
     })

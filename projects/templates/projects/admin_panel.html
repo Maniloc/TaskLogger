@@ -48,32 +48,42 @@
     <div style="position:relative;height:140px"><canvas id="actChart"></canvas></div>
   </div>
 
-  <!-- Recent invites -->
+  <!-- Invites -->
   <div class="card" style="margin-bottom:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
       <div class="card-title" style="margin-bottom:0">приглашения</div>
-      <button class="btn btn-ghost btn-sm" onclick="openInviteModal()" style="font-size:11px;padding:3px 9px">+ новое</button>
+      <button class="btn btn-primary btn-sm" onclick="openInviteModal()" style="font-size:11px;padding:3px 9px">+ новое</button>
     </div>
     {% if invites %}
-    <div style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto">
+    <div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto">
       {% for inv in invites %}
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)" id="adm-inv-{{ inv.pk }}">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;color:var(--text2)">{{ inv.created_by.username }}</div>
-          <div style="font-size:11px;color:var(--text3)">до {{ inv.expires_at|date:"d.m.Y" }}</div>
+          <div style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px">
+            <strong>{{ inv.created_by.username }}</strong>
+            <span style="color:var(--text3)">→</span>
+            {% if inv.used_by %}<span style="color:var(--green)">@{{ inv.used_by.username }}</span>{% else %}<span style="color:var(--text3)">не использовано</span>{% endif %}
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">
+            {{ inv.created_at|date:"d.m.Y" }} · до {{ inv.expires_at|date:"d.m.Y" }}
+          </div>
         </div>
         {% if inv.used %}
         <span class="badge b-status-done" style="font-size:10px">использовано</span>
         {% elif inv.is_valid %}
+        <button onclick="copyAdmInv('{{ request.scheme }}://{{ request.get_host }}/invite/{{ inv.token }}/', this)" class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px">копировать</button>
         <span class="badge" style="background:rgba(91,127,255,.15);color:var(--accent);font-size:10px">активно</span>
         {% else %}
         <span class="badge b-date" style="font-size:10px">истекло</span>
         {% endif %}
+        <button onclick="deleteAdmInv({{ inv.pk }})" title="Удалить"
+                style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;border-radius:4px;transition:color .1s"
+                onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">×</button>
       </div>
       {% endfor %}
     </div>
     {% else %}
-    <div style="font-size:13px;color:var(--text3)">нет приглашений</div>
+    <div style="font-size:13px;color:var(--text3);padding:4px 0">Нет приглашений. Нажмите «+ новое».</div>
     {% endif %}
   </div>
 </div>
@@ -200,6 +210,21 @@ function cv(n){ return getComputedStyle(document.documentElement).getPropertyVal
     }
   });
 })();
+
+// Delete invite
+async function deleteAdmInv(id) {
+  if (!confirm('Удалить приглашение?')) return;
+  const res = await fetch(`/invite/${id}/delete/`, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+  if (res.ok) {
+    const el = document.getElementById('adm-inv-' + id);
+    if (el) { el.style.opacity='0'; el.style.transition='opacity .2s'; setTimeout(()=>el.remove(),200); }
+  }
+}
+function copyAdmInv(url, btn) {
+  navigator.clipboard.writeText(url).then(()=>{
+    btn.textContent='скопировано!'; setTimeout(()=>btn.textContent='копировать',2000);
+  });
+}
 
 // Toggle user active/inactive
 async function toggleUser(userId, username, isActive) {
