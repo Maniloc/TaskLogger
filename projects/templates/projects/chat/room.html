@@ -30,7 +30,11 @@
     <div class="chat-conv-list">
       {% for item in convs_data %}
       <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %}">
-        <div class="chat-av">{{ item.other.username|first|upper }}</div>
+        {% if item.other.profile.avatar %}
+        <img src="{{ item.other.profile.avatar.url }}" class="chat-av" style="object-fit:cover">
+        {% else %}
+        <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
+        {% endif %}
         <div class="chat-conv-body">
           <div class="chat-conv-name">{% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}</div>
           <div class="chat-conv-preview">
@@ -58,7 +62,11 @@
     </div>
 
     <div class="chat-main-header">
-      <div class="chat-av" style="width:32px;height:32px;font-size:12px">{{ other.username|first|upper }}</div>
+      {% if other.profile.avatar %}
+      <img src="{{ other.profile.avatar.url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      {% else %}
+      <div class="chat-av" style="width:32px;height:32px;font-size:12px;{% if other.profile.avatar_color %}background:{{ other.profile.avatar_color }}{% endif %}">{{ other.profile.initials|default:other.username|first|upper }}</div>
+      {% endif %}
       <div>
         <div class="chat-main-name">{% if other.profile.display_name %}{{ other.profile.display_name }}{% else %}{{ other.username }}{% endif %}</div>
         {% if other.profile.position %}<div style="font-size:12px;color:var(--text3)">{{ other.profile.position }}</div>{% endif %}
@@ -106,8 +114,8 @@
       <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px;line-height:1">×</button>
     </div>
 
-    <!-- Emoji picker container -->
-    <div id="emoji-picker-wrap" style="display:none;border-top:1px solid var(--border)"></div>
+    <!-- Emoji picker — floating overlay, not in flex flow -->
+    <div id="emoji-picker-wrap" style="display:none;position:absolute;bottom:58px;left:0;right:0;z-index:100;border-top:1px solid var(--border);box-shadow:0 -8px 32px rgba(0,0,0,.3)"></div>
 
     <!-- Input area -->
     <div class="chat-input-area">
@@ -137,7 +145,7 @@
 </div>
 
 <style>
-.chat-main { position: relative; overflow: hidden; min-height: 0; }
+/* chat-main styles defined in base_chat.html */
 
 .chat-action-btn {
   width:36px;height:36px;display:flex;align-items:center;justify-content:center;
@@ -224,8 +232,11 @@
 #emoji-picker-wrap em-emoji-picker {
   --background-rgb: var(--bg3);
   --border-radius: 0;
-  width: 100%;
-  max-height: 320px;
+  --shadow: none;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 380px !important;
+  max-height: 380px !important;
 }
 </style>
 

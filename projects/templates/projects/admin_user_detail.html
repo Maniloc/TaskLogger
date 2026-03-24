@@ -14,7 +14,14 @@
       {{ target_user.username|first|upper }}
     </div>
     <div>
-      <div class="page-title">{{ target_user.username }}</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+    {% if target_user.profile.avatar %}
+    <img src="{{ target_user.profile.avatar.url }}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0">
+    {% else %}
+    <div style="width:44px;height:44px;border-radius:50%;background:{% if target_user.profile.avatar_color %}{{ target_user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">{{ target_user.profile.initials|default:target_user.username|first|upper }}</div>
+    {% endif %}
+    <div class="page-title" style="margin-bottom:0">{% if target_user.profile.full_name %}{{ target_user.profile.full_name }}{% else %}{{ target_user.username }}{% endif %}</div>
+  </div>
       <div class="page-sub">
         зарегистрирован {{ target_user.date_joined|date:"d.m.Y" }}
         {% if target_user.last_login %} · последний вход {{ target_user.last_login|date:"d.m.Y" }}{% endif %}

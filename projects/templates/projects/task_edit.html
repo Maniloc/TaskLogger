@@ -1,59 +1,68 @@
 {% extends 'projects/base.html' %}
-{% block title %}Редактирование задачи{% endblock %}
+{% block title %}Редактирование задачи — TaskLogger{% endblock %}
 {% block content %}
 <div class="breadcrumb">
   <a href="{% url 'index' %}">дашборд</a><span>›</span>
   <a href="{% url 'project_detail' task.project.pk %}">{{ task.project.name }}</a><span>›</span>
   редактирование
 </div>
-<div class="page-title" style="margin-bottom:1.25rem">редактирование задачи</div>
-<div class="card">
-  <form method="post">
-    {% csrf_token %}
-    <div class="form-grid">
-      <div class="fg">
-        <label>дата *</label>
-        <input type="date" name="date" value="{{ task.date|date:'Y-m-d' }}" required>
+
+<div style="max-width:680px">
+  <div class="page-title" style="margin-bottom:1.25rem">редактирование задачи</div>
+
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="fg">
+          <label>дата *</label>
+          <input type="date" name="date" value="{{ task.date|date:'Y-m-d' }}" required>
+        </div>
+        <div class="fg">
+          <label>статус</label>
+          <select name="status" id="edit-status">
+            {% for val,label in status_choices %}
+            <option value="{{ val }}"{% if val == task.status %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fg" id="edit-start-date">
+          <label>дата начала</label>
+          <input type="date" name="start_date" value="{{ task.start_date|date:'Y-m-d'|default:'' }}">
+        </div>
+        <div class="fg" id="edit-due-date">
+          <label>крайний срок</label>
+          <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d'|default:'' }}">
+        </div>
+        <div class="fg">
+          <label>инициатор</label>
+          <input type="text" name="initiator" value="{{ task.initiator }}" placeholder="Если отличается от проекта">
+        </div>
+        <div class="fg">
+          <label>часы</label>
+          <input type="text" name="hours" value="{{ task.hours|default:'' }}" placeholder="2.5 или 2ч30м">
+          <span class="field-hint">Форматы: 2.5 · 2,5 · 2ч30м · 2:30</span>
+        </div>
+        <div class="fg full">
+          <label>задача / описание *</label>
+          <textarea name="task" required>{{ task.task }}</textarea>
+        </div>
+        <div class="fg full">
+          <label>обоснование <span style="font-weight:400;color:var(--text3)">(письмо, документ, ссылка)</span></label>
+          <textarea name="basis" style="min-height:52px">{{ task.basis }}</textarea>
+        </div>
       </div>
-      <div class="fg">
-        <label>статус</label>
-        <select name="status" id="edit-status">
-          {% for val,label in status_choices %}
-          <option value="{{ val }}"{% if val == task.status %} selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
+      <div style="display:flex;gap:8px;margin-top:1.125rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <button type="submit" class="btn btn-primary">сохранить изменения</button>
+        <a href="{% url 'project_detail' task.project.pk %}" class="btn btn-ghost">отмена</a>
+        <form method="post" action="{% url 'task_delete' task.pk %}" style="margin-left:auto"
+              onsubmit="return confirm('Удалить задачу?')">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm">удалить задачу</button>
+        </form>
       </div>
-      <div class="fg" id="edit-start-date">
-        <label>дата начала</label>
-        <input type="date" name="start_date" value="{{ task.start_date|date:'Y-m-d'|default:'' }}">
-      </div>
-      <div class="fg" id="edit-due-date">
-        <label>крайний срок</label>
-        <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d'|default:'' }}">
-      </div>
-      <div class="fg">
-        <label>инициатор</label>
-        <input type="text" name="initiator" value="{{ task.initiator }}">
-      </div>
-      <div class="fg">
-        <label>часы</label>
-        <input type="text" name="hours" value="{{ task.hours|default:'' }}" placeholder="2.5 или 2ч30м">
-        <span class="field-hint">Форматы: 2.5 · 2,5 · 2ч30м · 2:30</span>
-      </div>
-      <div class="fg full">
-        <label>задача / описание *</label>
-        <textarea name="task" required>{{ task.task }}</textarea>
-      </div>
-      <div class="fg full">
-        <label>обоснование</label>
-        <textarea name="basis" style="min-height:52px">{{ task.basis }}</textarea>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:1rem">
-      <button type="submit" class="btn btn-primary">сохранить</button>
-      <a href="{% url 'project_detail' task.project.pk %}" class="btn btn-ghost">отмена</a>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
 
 <script>

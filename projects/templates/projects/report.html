@@ -1,63 +1,76 @@
 {% extends 'projects/base.html' %}
-{% block title %}Отчёт — TaskTracker{% endblock %}
+{% block title %}Отчёт — TaskLogger{% endblock %}
 {% block content %}
 
-<div class="page-title" style="margin-bottom:1.25rem">отчёт</div>
+<div class="page-header">
+  <div>
+    <div class="page-title">отчёт</div>
+    {% if date_from or date_to %}<div class="page-sub">{{ date_from|date:"d.m.Y" }} — {{ date_to|date:"d.m.Y" }}</div>{% endif %}
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    {% if tasks %}
+    <form method="get" style="display:contents">
+      {% for k,v in request.GET.items %}{% if k != 'format' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{%endif%}{% endfor %}
+      <input type="hidden" name="format" value="xlsx">
+      <button type="submit" class="btn btn-ghost btn-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Excel
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
 
-<div class="card" style="margin-bottom:1.25rem">
-  <form method="get">
-    <div class="form-grid">
-      <div class="fg"><label>с</label><input type="date" name="date_from" value="{{ date_from }}"></div>
-      <div class="fg"><label>по</label><input type="date" name="date_to" value="{{ date_to }}"></div>
-      <div class="fg"><label>проект</label>
-        <select name="project">
-          <option value="">все проекты</option>
-          {% for p in projects %}<option value="{{ p.pk }}"{% if project_id == p.pk|stringformat:"s" %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="fg"><label>группировка</label>
-        <select name="group_by">
-          <option value="project"{% if group_by == "project" %} selected{% endif %}>по проекту</option>
-          <option value="date"{% if group_by == "date" %} selected{% endif %}>по дате</option>
-          <option value="none"{% if group_by == "none" %} selected{% endif %}>без группировки</option>
-        </select>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button type="submit" class="btn btn-primary">сформировать</button>
-      {% if total %}<a href="?{{ request.GET.urlencode }}&export=xlsx" class="btn btn-ghost">скачать xlsx</a>{% endif %}
-      {% if total %}<button type="button" class="btn btn-ghost" onclick="copyReport()">скопировать текст</button>{% endif %}
-    </div>
+<!-- Filters -->
+<div class="filter-bar" style="margin-bottom:1.25rem">
+  <form method="get" style="display:contents">
+    <select name="project" style="min-width:160px">
+      <option value="">все проекты</option>
+      {% for p in projects %}<option value="{{ p.pk }}"{% if p.pk|stringformat:"s" == selected_project %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}" style="width:auto">
+    <span style="color:var(--text3);font-size:13px;align-self:center">—</span>
+    <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" style="width:auto">
+    <select name="status">
+      <option value="">все статусы</option>
+      {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="group">
+      <option value="project"{% if group_by == 'project' %} selected{% endif %}>по проектам</option>
+      <option value="date"{% if group_by == 'date' %} selected{% endif %}>по датам</option>
+    </select>
+    <button type="submit" class="btn btn-ghost btn-sm">применить</button>
+    {% if selected_project or date_from or date_to or status_filter %}
+    <a href="{% url 'report' %}" class="btn btn-ghost btn-sm">сброс</a>
+    {% endif %}
   </form>
 </div>
 
-{% if total is not None %}
-{% if total == 0 %}
-  <div class="empty">задачи за выбранный период не найдены</div>
-{% else %}
-
-<div class="stats-row">
-  <div class="stat-card"><div class="stat-val">{{ total }}</div><div class="stat-lbl">задач</div></div>
-  <div class="stat-card"><div class="stat-val">{{ total_hours|floatformat:1 }}ч</div><div class="stat-lbl">итого часов</div></div>
-  <div class="stat-card"><div class="stat-val">{{ grouped|length }}</div><div class="stat-lbl">групп</div></div>
+{% if tasks %}
+<!-- Summary bar -->
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:1.25rem;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:9px;align-items:center">
+  <div style="font-size:13px;color:var(--text2)"><span style="font-weight:600;color:var(--text)">{{ tasks|length }}</span> задач</div>
+  <div style="font-size:13px;color:var(--text2)"><span style="font-weight:600;color:var(--text)">{{ total_hours|floatformat:1 }}ч</span> итого</div>
+  <div style="margin-left:auto;display:flex;gap:6px">
+    <button onclick="document.getElementById('text-view').style.display='none';document.getElementById('table-view').style.display='block';this.style.color='var(--text)';this.nextElementSibling.style.color=''" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px;color:var(--text)">таблица</button>
+    <button onclick="document.getElementById('table-view').style.display='none';document.getElementById('text-view').style.display='block';this.style.color='var(--text)';this.previousElementSibling.style.color=''" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px">текст</button>
+  </div>
 </div>
 
-<div style="display:flex;gap:6px;margin-bottom:1rem">
-  <button class="btn btn-ghost btn-sm" id="btn-vis" onclick="showView('vis')">таблицей</button>
-  <button class="btn btn-ghost btn-sm" id="btn-txt" onclick="showView('txt')">текстом</button>
-</div>
-
-<div id="view-vis">
-{% if group_by == "project" %}
-  {% for grp,gtasks in grouped.items %}
+<!-- Table view -->
+<div id="table-view">
+  {% regroup tasks by project as tasks_by_project %}
+  {% for proj_tasks in tasks_by_project %}
   <div style="margin-bottom:1.5rem">
     <div class="report-group-title">
-      <span>{{ grp.name }}</span>
-      <span style="font-size:12px;font-weight:400;color:var(--text3)">{{ gtasks|length }} зад.</span>
+      {{ proj_tasks.grouper.name }}
+      <span style="font-size:13px;font-weight:400;color:var(--text3)">
+        {{ proj_tasks.list|length }} задач
+        {% with hours=proj_tasks.list %}·{% endwith %}
+      </span>
     </div>
-    {% if grp.initiator %}<div style="font-size:12px;color:var(--text3);margin-bottom:8px">инициатор: {{ grp.initiator }}{% if grp.description %} · {{ grp.description|truncatechars:80 }}{% endif %}</div>{% endif %}
-    {% for task in gtasks %}
-    <div class="card" style="margin-bottom:8px">
+    {% for task in proj_tasks.list %}
+    <div class="card" style="margin-bottom:6px;border-left:3px solid {{ task.status_color }}">
       <div class="task-row">
         <div class="dot dot-{{ task.status }}"></div>
         <div style="flex:1">
@@ -66,6 +79,7 @@
             <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
             {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
             {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+            <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
           </div>
           {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
         </div>
@@ -74,100 +88,38 @@
     {% endfor %}
   </div>
   {% endfor %}
+</div>
 
-{% elif group_by == "date" %}
-  {% for grp,gtasks in grouped.items %}
-  <div style="margin-bottom:1.25rem">
-    <div class="report-group-title">
-      <span>{{ grp|date:"d.m.Y" }}</span>
-      <span style="font-size:12px;font-weight:400;color:var(--text3)">{{ gtasks|length }} зад.</span>
-    </div>
-    {% for task in gtasks %}
-    <div class="card" style="margin-bottom:8px">
-      <div class="task-row">
-        <div class="dot dot-{{ task.status }}"></div>
-        <div style="flex:1">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:3px">{{ task.project.name }}</div>
-          <div class="task-text">{{ task.task }}</div>
-          <div class="task-meta">
-            {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-            {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
-          </div>
-          {% if task.basis %}<div class="task-basis">{{ task.basis }}</div>{% endif %}
-        </div>
-      </div>
-    </div>
-    {% endfor %}
+<!-- Text view (for copy-paste) -->
+<div id="text-view" style="display:none">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <button onclick="copyText()" class="btn btn-ghost btn-sm" id="copy-btn">скопировать текст</button>
   </div>
-  {% endfor %}
+  <div class="text-report" id="text-content">{{ text_report }}</div>
+</div>
 
 {% else %}
-  {% for task in tasks %}
-  <div class="card" style="margin-bottom:8px">
-    <div class="task-row">
-      <div class="dot dot-{{ task.status }}"></div>
-      <div style="flex:1">
-        <div class="task-text">{{ task.task }}</div>
-        <div class="task-meta">
-          <span class="badge b-proj">{{ task.project.name }}</span>
-          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
-          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-        </div>
-        {% if task.basis %}<div class="task-basis">{{ task.basis }}</div>{% endif %}
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-{% endif %}
+<div class="empty">
+  <div class="empty-icon">📋</div>
+  {% if selected_project or date_from or date_to %}задачи по выбранным фильтрам не найдены
+  {% else %}нет задач для отображения{% endif %}
 </div>
-
-<div id="view-txt" style="display:none">
-<div class="text-report" id="report-text">{% spaceless %}ОТЧЁТ О ВЫПОЛНЕННЫХ ЗАДАЧАХ
-{% if date_from %}Период: {{ date_from|date:"d.m.Y" }}{% endif %}{% if date_to %} — {{ date_to|date:"d.m.Y" }}{% endif %}
-{% if selected_project %}Проект: {{ selected_project.name }}{% endif %}
-Итого часов: {{ total_hours|floatformat:1 }}
-
-{% if group_by == "project" %}{% for grp,gtasks in grouped.items %}
-══ {{ grp.name }} ({{ gtasks|length }} зад.)
-{% if grp.initiator %}   Инициатор: {{ grp.initiator }}
-{% endif %}{% if grp.description %}   Обоснование: {{ grp.description }}
 {% endif %}
-{% for task in gtasks %}   {{ task.date|date:"d.m.Y" }}  [{{ task.get_status_display }}]  {{ task.task }}
-{% if task.hours %}          Часы: {{ task.hours }}
-{% endif %}{% if task.initiator %}          Инициатор: {{ task.initiator }}
-{% endif %}{% if task.basis %}          Обоснование: {{ task.basis }}
-{% endif %}{% endfor %}
-{% endfor %}{% elif group_by == "date" %}{% for grp,gtasks in grouped.items %}
-── {{ grp|date:"d.m.Y" }}
-{% for task in gtasks %}   [{{ task.project.name }}]  {{ task.task }}
-{% if task.hours %}   Часы: {{ task.hours }}
-{% endif %}{% if task.basis %}   Обоснование: {{ task.basis }}
-{% endif %}{% endfor %}
-{% endfor %}{% else %}{% for task in tasks %}
-{{ task.date|date:"d.m.Y" }}  [{{ task.project.name }}]  {{ task.task }}
-{% if task.hours %}  Часы: {{ task.hours }}
-{% endif %}{% if task.basis %}  Обоснование: {{ task.basis }}
-{% endif %}{% endfor %}{% endif %}
-Итого задач: {{ total }}
-{% endspaceless %}</div>
-</div>
-
-{% endif %}{% endif %}
 
 <script>
-function showView(v) {
-  document.getElementById('view-vis').style.display = v==='vis'?'block':'none';
-  document.getElementById('view-txt').style.display = v==='txt'?'block':'none';
-  document.getElementById('btn-vis').style.color = v==='vis'?'var(--text)':'';
-  document.getElementById('btn-txt').style.color = v==='txt'?'var(--text)':'';
-}
-function copyReport() {
-  showView('txt');
-  const text = document.getElementById('report-text').innerText;
+function copyText() {
+  const el = document.getElementById('text-content');
+  const text = el.innerText;
   navigator.clipboard.writeText(text).then(() => {
-    const b = document.querySelector('[onclick="copyReport()"]');
-    const o = b.textContent; b.textContent = 'скопировано!';
-    setTimeout(() => b.textContent = o, 2000);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'скопировано!';
+    setTimeout(() => btn.textContent = 'скопировать текст', 2000);
+  }).catch(() => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
   });
 }
 </script>

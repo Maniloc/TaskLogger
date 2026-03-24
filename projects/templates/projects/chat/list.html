@@ -33,7 +33,11 @@
     <div class="chat-conv-list">
       {% for item in convs_data %}
       <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item">
-        <div class="chat-av">{{ item.other.username|first|upper }}</div>
+        {% if item.other.profile.avatar %}
+        <img src="{{ item.other.profile.avatar.url }}" class="chat-av" style="object-fit:cover">
+        {% else %}
+        <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
+        {% endif %}
         <div class="chat-conv-body">
           <div class="chat-conv-name">
             {% if item.other.profile.display_name %}{{ item.other.profile.display_name }}{% else %}{{ item.other.username }}{% endif %}

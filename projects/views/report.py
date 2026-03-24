@@ -44,10 +44,25 @@ def report(request):
         (t.hours for t in tasks_list if t.hours), Decimal('0')
     )
 
-    if request.GET.get('export') == 'xlsx':
+    if request.GET.get('export') == 'xlsx' or request.GET.get('format') == 'xlsx':
         return _export_xlsx(tasks_list, date_from, date_to)
 
     grouped = _group_tasks(tasks_list, group_by)
+
+    # Build text report for copy-paste
+    status_map = dict(Task.STATUS_CHOICES)
+    text_lines = []
+    current_proj = None
+    for t in tasks_list:
+        if t.project != current_proj:
+            current_proj = t.project
+            text_lines.append(f'\n{t.project.name}')
+            text_lines.append('─' * len(t.project.name))
+        hours_str = f' [{t.hours}ч]' if t.hours else ''
+        text_lines.append(f'{t.date.strftime("%d.%m.%Y")}{hours_str} — {t.task}')
+        if t.basis:
+            text_lines.append(f'  Обоснование: {t.basis}')
+    text_report = '\n'.join(text_lines).strip()
 
     return render(request, 'projects/report.html', {
         'projects': projects,
@@ -56,10 +71,12 @@ def report(request):
         'group_by': group_by,
         'date_from': date_from,
         'date_to': date_to,
-        'project_id': project_id,
-        'selected_project': projects.filter(pk=project_id).first() if project_id else None,
+        'status_filter': request.GET.get('status', ''),
+        'status_choices': Task.STATUS_CHOICES,
+        'selected_project': str(project_id) if project_id else '',
         'total': len(tasks_list),
         'total_hours': total_hours,
+        'text_report': text_report,
     })
 
 
