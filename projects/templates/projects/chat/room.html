@@ -173,50 +173,52 @@
 .msg-file-size { font-size:11px;color:var(--text3);margin-top:1px; }
 .msg-row.mine .msg-file-size { color:rgba(255,255,255,.6); }
 
-.msg-row { position: relative; }
-.msg-actions {
-  display: none;
-  position: absolute;
-  top: -6px;
-  right: 48px;
+/* Context menu */
+.ctx-menu {
+  position: fixed;
   background: var(--bg2);
   border: 1px solid var(--border2);
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.3);
-  z-index: 10;
+  border-radius: 10px;
+  padding: 5px;
+  min-width: 160px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  z-index: 9998;
+  animation: ctxIn .1s ease;
 }
-.msg-row.mine .msg-actions { right: auto; left: 48px; }
-.msg-row:hover .msg-actions { display: flex; }
-.msg-action-btn {
-  padding: 4px 8px; border-radius: 5px; font-size: 11px;
-  border: none; cursor: pointer; background: none;
-  color: var(--text2); font-family: inherit;
-  transition: background .1s, color .1s;
+@keyframes ctxIn {
+  from { opacity:0; transform: scale(.95); }
+  to   { opacity:1; transform: scale(1); }
 }
-.msg-action-btn:hover { background: var(--surface); }
-.msg-action-btn.danger:hover { background: rgba(248,113,113,.15); color: var(--red); }
+.ctx-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; border-radius: 7px;
+  font-size: 13px; color: var(--text2);
+  cursor: pointer; transition: background .1s, color .1s;
+  font-family: inherit; background: none; border: none;
+  width: 100%; text-align: left;
+}
+.ctx-item:hover { background: var(--surface); color: var(--text); }
+.ctx-item.danger { color: var(--red); }
+.ctx-item.danger:hover { background: rgba(248,113,113,.12); }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
 
+/* Inline edit form */
+.msg-row { position: relative; }
 .msg-editing .msg-bubble { display: none; }
-.msg-edit-form {
-  display: none; flex: 1;
-}
+.msg-edit-form { display: none; flex: 1; }
 .msg-editing .msg-edit-form { display: flex; gap: 6px; align-items: flex-end; }
 .msg-edit-input {
-  flex: 1; padding: 7px 11px;
+  flex: 1; padding: 8px 12px;
   background: var(--bg3); border: 1px solid var(--accent);
-  border-radius: 10px; color: var(--text); font-size: 14px;
-  font-family: inherit; outline: none; resize: none;
-  line-height: 1.45;
+  border-radius: 12px; color: var(--text); font-size: 14px;
+  font-family: inherit; outline: none; resize: none; line-height: 1.45;
 }
 .msg-edit-save, .msg-edit-cancel {
-  padding: 6px 10px; border-radius: 7px; font-size: 12px;
-  border: 1px solid var(--border2); cursor: pointer;
-  font-family: inherit; background: none;
+  padding: 7px 11px; border-radius: 8px; font-size: 12px;
+  border: 1px solid var(--border2); cursor: pointer; font-family: inherit;
 }
 .msg-edit-save { background: var(--accent); color: #fff; border-color: var(--accent); }
-.msg-edit-cancel { color: var(--text3); }
+.msg-edit-cancel { background: none; color: var(--text3); }
 
 /* emoji-mart theme override */
 #emoji-picker-wrap em-emoji-picker {
@@ -434,22 +436,17 @@ function renderMsg(m) {
   row.dataset.date = m.date;
   let content = m.text ? `<span class="msg-text">${escHtml(m.text)}</span>` : '';
   if (m.file) content += renderFileBlock(m.file, m.mine);
-  const actions = m.mine ? `
-    <div class="msg-actions">
-      <button class="msg-action-btn" onclick="startEdit(${m.id}, this)" title="Редактировать">✏️</button>
-      <button class="msg-action-btn danger" onclick="deleteMsg(${m.id}, this)" title="Удалить">🗑</button>
-    </div>` : '';
   row.innerHTML = `
     <div class="msg-av">${m.sender[0].toUpperCase()}</div>
     <div class="msg-bubble">${content}</div>
     <span class="msg-time">${m.created_at}</span>
-    ${actions}
     <div class="msg-edit-form">
       <textarea class="msg-edit-input" rows="1"></textarea>
       <button class="msg-edit-save" onclick="saveEdit(${m.id}, this)">✓</button>
       <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>
     </div>
   `;
+  row.addEventListener('contextmenu', e => showCtx(e, m.id, m.mine));
   msgs.appendChild(row);
 }
 
@@ -503,29 +500,97 @@ document.querySelectorAll('.msg-row').forEach(row => {
 // ══════════════════════════════════
 // Polling
 // ══════════════════════════════════
-// ── Edit/Delete message ──
-const EDIT_URL   = id => `/chat/msg/${id}/edit/`;
-const DELETE_URL = id => `/chat/msg/${id}/delete/`;
+// ── Context menu ──
+let ctxMenu = null;
 
-function startEdit(msgId, btn) {
-  const row = btn.closest('.msg-row');
+function showCtx(e, msgId, isMine) {
+  e.preventDefault();
+  closeCtx();
+
+  const row = e.currentTarget;
   const bubble = row.querySelector('.msg-bubble');
-  const textEl = bubble.querySelector('.msg-text');
+  const textEl = bubble ? bubble.querySelector('.msg-text') : null;
+  const hasText = textEl && textEl.textContent.trim();
+
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.id = 'ctx-menu';
+
+  // Copy — always available
+  menu.innerHTML += `<button class="ctx-item" onclick="copyMsg(${msgId})">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Копировать
+  </button>`;
+
+  if (isMine) {
+    menu.innerHTML += `<div class="ctx-sep"></div>`;
+    if (hasText) {
+      menu.innerHTML += `<button class="ctx-item" onclick="startEdit(${msgId})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Редактировать
+      </button>`;
+    }
+    menu.innerHTML += `<button class="ctx-item danger" onclick="deleteMsg(${msgId})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Удалить
+    </button>`;
+  }
+
+  // Position menu near cursor, keep inside viewport
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const x = Math.min(e.clientX, window.innerWidth  - mw - 8);
+  const y = Math.min(e.clientY, window.innerHeight - mh - 8);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+  ctxMenu = menu;
+
+  // Store msgId on menu for helpers
+  menu.dataset.msgId = msgId;
+}
+
+function closeCtx() {
+  if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; }
+}
+
+document.addEventListener('click',      closeCtx);
+document.addEventListener('scroll',     closeCtx, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
+
+// ── Copy ──
+function copyMsg(msgId) {
+  closeCtx();
+  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+  const textEl = row && row.querySelector('.msg-text');
+  const text = textEl ? textEl.textContent : '';
+  if (text) navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  });
+}
+
+// ── Edit ──
+function startEdit(msgId) {
+  closeCtx();
+  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+  if (!row) return;
+  const textEl = row.querySelector('.msg-text');
   const editForm = row.querySelector('.msg-edit-form');
   const input = editForm.querySelector('.msg-edit-input');
   input.value = textEl ? textEl.textContent : '';
   row.classList.add('msg-editing');
   input.focus();
   input.style.height = 'auto';
-  input.style.height = input.scrollHeight + 'px';
-  input.addEventListener('keydown', function handler(e) {
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  input.onkeydown = e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(msgId, input); }
     if (e.key === 'Escape') cancelEdit(input);
-  });
-  input.addEventListener('input', () => {
+  };
+  input.oninput = () => {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-  });
+  };
 }
 
 function cancelEdit(el) {
@@ -537,7 +602,7 @@ async function saveEdit(msgId, el) {
   const input = row.querySelector('.msg-edit-input');
   const text = input.value.trim();
   if (!text) return;
-  const res = await fetch(EDIT_URL(msgId), {
+  const res = await fetch(`/chat/msg/${msgId}/edit/`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
     body: JSON.stringify({text}),
@@ -549,36 +614,36 @@ async function saveEdit(msgId, el) {
   }
 }
 
-async function deleteMsg(msgId, btn) {
+// ── Delete ──
+async function deleteMsg(msgId) {
+  closeCtx();
   if (!confirm('Удалить сообщение?')) return;
-  const res = await fetch(DELETE_URL(msgId), {
-    method: 'POST',
-    headers: {'X-CSRFToken': CSRF},
+  const res = await fetch(`/chat/msg/${msgId}/delete/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
   });
   if (res.ok) {
-    const row = btn.closest('.msg-row');
-    row.style.opacity = '0';
-    row.style.transition = 'opacity .2s';
-    setTimeout(() => row.remove(), 200);
+    const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+    if (row) {
+      row.style.transition = 'opacity .2s, transform .2s';
+      row.style.opacity = '0'; row.style.transform = 'scale(.95)';
+      setTimeout(() => row.remove(), 200);
+    }
   }
 }
 
-// Add actions to existing messages (rendered server-side)
-document.querySelectorAll('.msg-row.mine').forEach(row => {
+// Add context menu to server-rendered messages
+document.querySelectorAll('.msg-row').forEach(row => {
   const msgId = row.dataset.id;
-  if (!row.querySelector('.msg-actions')) {
-    const actions = document.createElement('div');
-    actions.className = 'msg-actions';
-    actions.innerHTML = `
-      <button class="msg-action-btn" onclick="startEdit(${msgId}, this)" title="Редактировать">✏️</button>
-      <button class="msg-action-btn danger" onclick="deleteMsg(${msgId}, this)" title="Удалить">🗑</button>`;
+  const isMine = row.classList.contains('mine');
+  row.addEventListener('contextmenu', e => showCtx(e, +msgId, isMine));
+  // Add edit form placeholder for own messages
+  if (isMine && !row.querySelector('.msg-edit-form')) {
     const editForm = document.createElement('div');
     editForm.className = 'msg-edit-form';
     editForm.innerHTML = `
       <textarea class="msg-edit-input" rows="1"></textarea>
       <button class="msg-edit-save" onclick="saveEdit(${msgId}, this)">✓</button>
       <button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button>`;
-    row.appendChild(actions);
     row.appendChild(editForm);
   }
 });
