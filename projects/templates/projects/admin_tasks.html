@@ -1,0 +1,77 @@
+{% extends 'projects/base.html' %}
+{% block title %}Все задачи — Администрирование{% endblock %}
+{% block content %}
+
+<div class="breadcrumb">
+  <a href="{% url 'admin_panel' %}">администрирование</a><span>›</span>все задачи
+</div>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">все задачи</div>
+    <div class="page-sub">{{ total_count }} задач · {{ total_hours|floatformat:1 }}ч</div>
+  </div>
+</div>
+
+<div class="filter-bar" style="margin-bottom:1.25rem">
+  <form method="get" style="display:contents">
+    <input type="text" name="search" placeholder="поиск по задачам, проектам, пользователям..." value="{{ search }}" style="flex:2;min-width:200px">
+    <select name="user">
+      <option value="">все пользователи</option>
+      {% for u in all_users %}<option value="{{ u.pk }}"{% if user_filter == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.username }}</option>{% endfor %}
+    </select>
+    <select name="status">
+      <option value="">все статусы</option>
+      {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from }}" style="width:auto">
+    <span style="color:var(--text3);font-size:13px;align-self:center">—</span>
+    <input type="date" name="date_to" value="{{ date_to }}" style="width:auto">
+    <button type="submit" class="btn btn-ghost btn-sm">применить</button>
+    {% if search or status_filter or user_filter or date_from or date_to %}
+    <a href="{% url 'admin_tasks' %}" class="btn btn-ghost btn-sm">сброс</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if tasks %}
+  {% for task in tasks %}
+  <div class="card" style="margin-bottom:8px;border-left:3px solid {{ task.status_color }}">
+    <div class="task-row">
+      <div class="dot dot-{{ task.status }}"></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+          <a href="{% url 'admin_user_detail' task.project.user.pk %}" style="font-size:12px;font-weight:500;color:var(--accent2);text-decoration:none">{{ task.project.user.username }}</a>
+          <span style="color:var(--text3);font-size:12px">/</span>
+          <span style="font-size:12px;color:var(--text2)">{{ task.project.name }}</span>
+        </div>
+        <div class="task-text">{{ task.task }}</div>
+        <div class="task-meta">
+          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+          {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+          <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
+          {% if task.due_date and task.urgency == 'overdue' %}<span class="badge" style="background:rgba(248,113,113,.15);color:var(--red)">просрочено {{ task.due_date|date:"d.m" }}</span>{% endif %}
+        </div>
+        {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>{% endif %}
+    {% for n in page_obj.paginator.page_range %}
+      {% if n == page_obj.number %}<span class="page-link current">{{ n }}</span>
+      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}
+        <a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}page={{ n }}">{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>{% endif %}
+  </div>
+  {% endif %}
+{% else %}
+  <div class="empty"><div class="empty-icon">📋</div>задачи не найдены</div>
+{% endif %}
+{% endblock %}

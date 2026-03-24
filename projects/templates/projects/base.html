@@ -634,10 +634,6 @@ select option { background: var(--bg3); color: var(--text); }
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
       пригласить
     </button>
-    <button onclick="openInviteModal()" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #333;border-radius:5px;color:#666;font-size:12px;background:none;cursor:pointer;font-family:inherit;transition:color .12s,border-color .12s" onmouseover="this.style.color='#aaa';this.style.borderColor='#555'" onmouseout="this.style.color='#666';this.style.borderColor='#333'" title="Пригласить пользователя">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-      пригласить
-    </button>
     <a href="{% url 'chat_list' %}" style="position:relative;display:inline-flex;align-items:center;padding:5px 10px;border:1px solid #333;border-radius:5px;color:#666;font-size:12px;text-decoration:none;transition:color .12s" onmouseover="this.style.color='#aaa';this.style.borderColor='#555'" onmouseout="this.style.color='#666';this.style.borderColor='#333'" title="Сообщения">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
       чат
@@ -752,10 +748,6 @@ function copyInviteLink() {
   setTimeout(() => btn.textContent = 'Копировать', 2000);
 }
 
-// ── Invite modal ──
-function openInviteModal() {
-  document.getElementById('invite-modal').style.display = 'flex';
-}
 function closeInviteModal() {
   document.getElementById('invite-modal').style.display = 'none';
   document.getElementById('invite-result').style.display = 'none';

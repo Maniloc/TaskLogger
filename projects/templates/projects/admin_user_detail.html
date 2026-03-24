@@ -3,90 +3,141 @@
 {% block content %}
 
 <div class="breadcrumb">
-  <a href="{% url 'admin_panel' %}">администрирование</a>
-  <span>›</span>
+  <a href="{% url 'admin_panel' %}">администрирование</a><span>›</span>
   {{ target_user.username }}
 </div>
 
-<div class="page-header">
-  <div style="display:flex;align-items:center;gap:12px">
-    <div style="width:44px;height:44px;border-radius:50%;background:var(--tag-bg);color:var(--tag-text);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">
-      {{ target_user.username|first|upper }}
+<!-- User header -->
+<div style="display:flex;align-items:flex-start;gap:20px;margin-bottom:1.75rem;padding:1.25rem 1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap">
+  {% if target_user.profile.avatar %}
+  <img src="{{ target_user.profile.avatar.url }}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border2)">
+  {% else %}
+  <div style="width:72px;height:72px;border-radius:50%;background:{% if target_user.profile.avatar_color %}{{ target_user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;flex-shrink:0">
+    {{ target_user.profile.initials|default:target_user.username|first|upper }}
+  </div>
+  {% endif %}
+  <div style="flex:1;min-width:0">
+    <div class="page-title" style="margin-bottom:4px">
+      {% if target_user.profile.full_name %}{{ target_user.profile.full_name }}{% else %}{{ target_user.username }}{% endif %}
     </div>
-    <div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
-    {% if target_user.profile.avatar %}
-    <img src="{{ target_user.profile.avatar.url }}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0">
-    {% else %}
-    <div style="width:44px;height:44px;border-radius:50%;background:{% if target_user.profile.avatar_color %}{{ target_user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">{{ target_user.profile.initials|default:target_user.username|first|upper }}</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:8px">
+      @{{ target_user.username }}
+      {% if target_user.profile.position %} · {{ target_user.profile.position }}{% endif %}
+      {% if target_user.profile.department %} · {{ target_user.profile.department }}{% endif %}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      {% if target_user.is_active %}
+      <span class="badge b-status-done">активен</span>
+      {% else %}
+      <span class="badge b-status-deferred">заблокирован</span>
+      {% endif %}
+      {% if target_user.is_superuser %}
+      <span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber)">администратор</span>
+      {% endif %}
+      <span class="badge b-date">с {{ target_user.date_joined|date:"d.m.Y" }}</span>
+      {% if target_user.last_login %}
+      <span class="badge b-date">вход {{ target_user.last_login|date:"d.m.Y H:i" }}</span>
+      {% endif %}
+      {% if overdue %}
+      <span class="badge" style="background:rgba(248,113,113,.15);color:var(--red)">{{ overdue }} просрочено</span>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Actions -->
+  <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+    {% if target_user.pk != request.user.pk %}
+    <button onclick="toggleUserDetail({{ target_user.pk }}, '{{ target_user.username }}', {{ target_user.is_active|lower }})"
+            class="btn btn-ghost btn-sm"
+            style="color:{% if target_user.is_active %}var(--amber){% else %}var(--green){% endif %}">
+      {% if target_user.is_active %}заблокировать{% else %}активировать{% endif %}
+    </button>
+    <button onclick="document.getElementById('reset-pw-form').style.display=document.getElementById('reset-pw-form').style.display==='none'?'block':'none'"
+            class="btn btn-ghost btn-sm">сменить пароль</button>
+    <form method="post" action="{% url 'admin_user_delete' target_user.pk %}"
+          onsubmit="return confirm('Удалить пользователя {{ target_user.username }} и ВСЕ его данные?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm" style="width:100%">удалить пользователя</button>
+    </form>
     {% endif %}
-    <div class="page-title" style="margin-bottom:0">{% if target_user.profile.full_name %}{{ target_user.profile.full_name }}{% else %}{{ target_user.username }}{% endif %}</div>
   </div>
-      <div class="page-sub">
-        зарегистрирован {{ target_user.date_joined|date:"d.m.Y" }}
-        {% if target_user.last_login %} · последний вход {{ target_user.last_login|date:"d.m.Y" }}{% endif %}
-      </div>
-    </div>
-  </div>
-  <a href="{% url 'report' %}?user={{ target_user.pk }}" class="btn btn-ghost btn-sm">отчёт пользователя</a>
 </div>
 
-<div class="stats-row">
-  <div class="stat-card">
-    <div class="stat-val">{{ total.count|default:0 }}</div>
-    <div class="stat-lbl">всего задач</div>
+<!-- Reset password form (hidden) -->
+<div id="reset-pw-form" style="display:none;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="card-title">новый пароль для {{ target_user.username }}</div>
+    <form method="post" action="{% url 'admin_reset_password' target_user.pk %}">
+      {% csrf_token %}
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div class="fg" style="flex:1;margin:0">
+          <label>новый пароль (мин. 8 символов)</label>
+          <input type="text" name="password" placeholder="новый пароль" required>
+        </div>
+        <button type="submit" class="btn btn-primary">установить</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('reset-pw-form').style.display='none'">отмена</button>
+      </div>
+    </form>
   </div>
-  <div class="stat-card">
-    <div class="stat-val">{{ total.hours|default:0|floatformat:1 }}ч</div>
-    <div class="stat-lbl">всего часов</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-val">{{ tasks_month.count|default:0 }}</div>
-    <div class="stat-lbl">задач в этом месяце</div>
-  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="margin-bottom:1.5rem">
+  <div class="stat-card"><div class="stat-val">{{ total.count|default:0 }}</div><div class="stat-lbl">всего задач</div></div>
+  <div class="stat-card"><div class="stat-val">{{ total.hours|default:0|floatformat:1 }}ч</div><div class="stat-lbl">всего часов</div></div>
+  <div class="stat-card"><div class="stat-val">{{ tasks_month.count|default:0 }}</div><div class="stat-lbl">задач в месяце</div></div>
+  <div class="stat-card"><div class="stat-val">{{ tasks_month.hours|default:0|floatformat:1 }}ч</div><div class="stat-lbl">часов в месяце</div></div>
 </div>
 
 <!-- Projects -->
-<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">проекты</div>
 {% if projects %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:1.75rem">
-  {% for proj in projects %}
-  <div class="card" style="margin-bottom:0">
-    <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px">{{ proj.name }}</div>
-    {% if proj.initiator %}<div style="font-size:12px;color:var(--text3);margin-bottom:6px">{{ proj.initiator }}</div>{% endif %}
-    <div style="display:flex;gap:12px">
-      <div><span style="font-size:16px;font-weight:600;color:var(--text)">{{ proj.task_count_ann }}</span> <span style="font-size:11px;color:var(--text3)">задач</span></div>
-      <div><span style="font-size:16px;font-weight:600;color:var(--text)">{{ proj.hours_total|default:0|floatformat:1 }}</span> <span style="font-size:11px;color:var(--text3)">ч</span></div>
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-title">проекты ({{ projects.count }})</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+    {% for proj in projects %}
+    <div style="padding:10px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+      <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px">{{ proj.name }}</div>
+      {% if proj.initiator %}<div style="font-size:11px;color:var(--text3);margin-bottom:4px">{{ proj.initiator }}</div>{% endif %}
+      <div style="display:flex;gap:10px">
+        <div><span style="font-size:15px;font-weight:600;color:var(--text)">{{ proj.task_count_ann }}</span> <span style="font-size:10px;color:var(--text3)">задач</span></div>
+        {% if proj.hours_total %}<div><span style="font-size:15px;font-weight:600;color:var(--text)">{{ proj.hours_total|floatformat:1 }}</span> <span style="font-size:10px;color:var(--text3)">ч</span></div>{% endif %}
+      </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </div>
-{% else %}
-<div class="empty" style="padding:1.5rem">нет проектов</div>
 {% endif %}
 
 <!-- Recent tasks -->
-<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">последние задачи</div>
-{% if recent_tasks %}
+<div class="card">
+  <div class="card-title">последние задачи</div>
   {% for task in recent_tasks %}
-  <div class="card">
-    <div class="task-row">
-      <div class="dot dot-{{ task.status }}"></div>
-      <div style="flex:1">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:3px">{{ task.project.name }}</div>
-        <div class="task-text">{{ task.task }}</div>
-        <div class="task-meta">
-          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
-          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-          <span class="badge" style="background:var(--bg3);color:var(--text3);font-size:10px">{{ task.get_status_display }}</span>
-        </div>
-        {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+  <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;{% if not forloop.last %}border-bottom:1px solid var(--border){% endif %}">
+    <div class="dot dot-{{ task.status }}" style="margin-top:4px;flex-shrink:0"></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;color:var(--text)">{{ task.task|truncatechars:100 }}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <span class="badge b-proj">{{ task.project.name }}</span>
+        <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
+        {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+        <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
       </div>
     </div>
   </div>
+  {% empty %}
+  <div style="font-size:13px;color:var(--text3)">нет задач</div>
   {% endfor %}
-{% else %}
-  <div class="empty">задач нет</div>
-{% endif %}
+</div>
 
+<script>
+const CSRF = '{{ csrf_token }}';
+async function toggleUserDetail(userId, username, isActive) {
+  const action = isActive ? 'заблокировать' : 'активировать';
+  if (!confirm(`${action} пользователя ${username}?`)) return;
+  const res = await fetch(`/admin-panel/user/${userId}/toggle/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  if (res.ok) location.reload();
+  else alert('Ошибка');
+}
+</script>
 {% endblock %}

@@ -1,110 +1,215 @@
 {% extends 'projects/base.html' %}
-{% block title %}Администрирование — TaskTracker{% endblock %}
+{% block title %}Администрирование — TaskLogger{% endblock %}
 {% block content %}
 
 <div class="page-header">
   <div>
-    <div class="page-title">администрирование</div>
-    <div class="page-sub">всего задач: {{ total_count }} · итого часов: {{ total_hours|floatformat:1 }}ч</div>
+    <div class="page-title">панель администратора</div>
+    <div class="page-sub">{{ today|date:"d.m.Y" }}</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{% url 'admin_tasks' %}" class="btn btn-ghost btn-sm">все задачи</a>
+    <button class="btn btn-primary btn-sm" onclick="openInviteModal()">+ пригласить</button>
   </div>
 </div>
 
-<!-- User cards -->
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:1.75rem">
-  <a href="{% url 'admin_panel' %}" class="card" style="margin-bottom:0;text-decoration:none;border-color:{% if not user_filter %}var(--accent){% else %}var(--border){% endif %}">
-    <div style="font-size:13px;font-weight:500;color:var(--text)">все пользователи</div>
-    <div style="font-size:11px;color:var(--text3);margin-top:3px">{{ total_count }} задач</div>
-  </a>
-  {% for u in users %}
-  <a href="{% url 'admin_user_detail' u.pk %}" class="card" style="margin-bottom:0;text-decoration:none;transition:border-color .12s"
-     onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      {% if u.profile.avatar %}
-      <img src="{{ u.profile.avatar.url }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">
-      {% else %}
-      <div style="width:28px;height:28px;border-radius:50%;background:{% if u.profile.avatar_color %}{{ u.profile.avatar_color }}{% else %}var(--tag-bg){% endif %};color:{% if u.profile.avatar_color %}#fff{% else %}var(--tag-text){% endif %};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">
-        {{ u.profile.initials|default:u.username|first|upper }}
-      </div>
-      {% endif %}
-      <div style="font-size:13px;font-weight:500;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.username }}</div>
-    </div>
-    <div style="display:flex;gap:10px">
-      <div>
-        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.task_count }}</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">задач</div>
-      </div>
-      <div>
-        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.hours_total|default:0|floatformat:0 }}ч</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">часов</div>
-      </div>
-      <div>
-        <div style="font-size:15px;font-weight:600;color:var(--text)">{{ u.project_count }}</div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">проектов</div>
-      </div>
-    </div>
-  </a>
-  {% endfor %}
+<!-- ── Global stat cards ── -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:1.75rem">
+  <div class="stat-card">
+    <div class="stat-val">{{ total_users }}</div>
+    <div class="stat-lbl">пользователей</div>
+    <div style="font-size:11px;color:var(--green);margin-top:4px">{{ active_users }} активны</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ total_projects }}</div>
+    <div class="stat-lbl">проектов</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ total_tasks }}</div>
+    <div class="stat-lbl">задач всего</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">{{ tasks_month }} в этом мес.</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">{{ total_hours|floatformat:0 }}ч</div>
+    <div class="stat-lbl">часов всего</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">{{ hours_month|floatformat:1 }}ч в мес.</div>
+  </div>
+  <div class="stat-card" style="{% if overdue_count %}border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.05){% endif %}">
+    <div class="stat-val" style="{% if overdue_count %}color:var(--red){% endif %}">{{ overdue_count }}</div>
+    <div class="stat-lbl" style="{% if overdue_count %}color:var(--red){% endif %}">просрочено</div>
+  </div>
 </div>
 
-<!-- Filters -->
-<div class="filter-bar" style="margin-bottom:1.25rem">
-  <form method="get" style="display:contents">
-    <input type="text" name="search" placeholder="поиск по задачам, проектам, пользователям..." value="{{ search }}" style="flex:2;min-width:200px">
-    <select name="user">
-      <option value="">все пользователи</option>
-      {% for u in all_users %}<option value="{{ u.pk }}"{% if user_filter == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.username }}</option>{% endfor %}
-    </select>
-    <select name="status">
-      <option value="">все статусы</option>
-      {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-    <input type="date" name="date_from" value="{{ date_from }}" style="width:auto">
-    <input type="date" name="date_to" value="{{ date_to }}" style="width:auto">
-    <button type="submit" class="btn btn-ghost btn-sm">применить</button>
-    {% if search or status_filter or user_filter or date_from or date_to %}
-    <a href="{% url 'admin_panel' %}" class="btn btn-ghost btn-sm">сброс</a>
+<div style="display:grid;grid-template-columns:1fr 320px;gap:1.25rem;margin-bottom:1.75rem">
+
+  <!-- Activity chart -->
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">активность по дням — 30 дней</div>
+    <div style="position:relative;height:140px"><canvas id="actChart"></canvas></div>
+  </div>
+
+  <!-- Recent invites -->
+  <div class="card" style="margin-bottom:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
+      <div class="card-title" style="margin-bottom:0">приглашения</div>
+      <button class="btn btn-ghost btn-sm" onclick="openInviteModal()" style="font-size:11px;padding:3px 9px">+ новое</button>
+    </div>
+    {% if invites %}
+    <div style="display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto">
+      {% for inv in invites %}
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;color:var(--text2)">{{ inv.created_by.username }}</div>
+          <div style="font-size:11px;color:var(--text3)">до {{ inv.expires_at|date:"d.m.Y" }}</div>
+        </div>
+        {% if inv.used %}
+        <span class="badge b-status-done" style="font-size:10px">использовано</span>
+        {% elif inv.is_valid %}
+        <span class="badge" style="background:rgba(91,127,255,.15);color:var(--accent);font-size:10px">активно</span>
+        {% else %}
+        <span class="badge b-date" style="font-size:10px">истекло</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="font-size:13px;color:var(--text3)">нет приглашений</div>
     {% endif %}
-  </form>
+  </div>
 </div>
 
-<!-- Tasks table -->
-{% if tasks %}
-  {% for task in tasks %}
-  <div class="card" style="margin-bottom:8px">
-    <div class="task-row">
-      <div class="dot dot-{{ task.status }}" title="{{ task.get_status_display }}"></div>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:500;color:var(--accent2)">{{ task.project.user.username }}</span>
-          <span style="color:var(--text3);font-size:12px">/</span>
-          <span style="font-size:12px;color:var(--text2)">{{ task.project.name }}</span>
-        </div>
-        <div class="task-text">{{ task.task }}</div>
-        <div class="task-meta">
-          <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
-          {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-          {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
-          <span class="badge" style="background:var(--bg3);color:var(--text3);font-size:10px">{{ task.get_status_display }}</span>
-        </div>
-        {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
-      </div>
-    </div>
+<!-- ── Users table ── -->
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div class="card-title" style="margin-bottom:0">пользователи ({{ total_users }})</div>
   </div>
-  {% endfor %}
-
-  {% if page_obj.has_other_pages %}
-  <div class="pagination">
-    {% if page_obj.has_previous %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a>{% endif %}
-    {% for n in page_obj.paginator.page_range %}
-      {% if n == page_obj.number %}<span class="page-link current">{{ n }}</span>
-      {% elif n == 1 or n == page_obj.paginator.num_pages or n|add:"-1" == page_obj.number or n|add:"1" == page_obj.number %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}page={{ n }}">{{ n }}</a>
-      {% endif %}
-    {% endfor %}
-    {% if page_obj.has_next %}<a class="page-link" href="?{% if search %}search={{ search }}&{% endif %}{% if user_filter %}user={{ user_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">→</a>{% endif %}
+  <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--bg3)">
+          <th style="padding:10px 18px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">пользователь</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">проектов</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">задач</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">часов</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">статус</th>
+          <th style="padding:10px 18px;text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">роль</th>
+          <th style="padding:10px 18px;text-align:right;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr style="border-top:1px solid var(--border);transition:background .1s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+          <td style="padding:12px 18px">
+            <a href="{% url 'admin_user_detail' u.pk %}" style="display:flex;align-items:center;gap:10px;text-decoration:none">
+              {% if u.profile.avatar %}
+              <img src="{{ u.profile.avatar.url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">
+              {% else %}
+              <div style="width:32px;height:32px;border-radius:50%;background:{% if u.profile.avatar_color %}{{ u.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
+                {{ u.profile.initials|default:u.username|first|upper }}
+              </div>
+              {% endif %}
+              <div>
+                <div style="font-size:14px;font-weight:500;color:var(--text)">
+                  {% if u.profile.full_name %}{{ u.profile.full_name }}{% else %}{{ u.username }}{% endif %}
+                </div>
+                <div style="font-size:11px;color:var(--text3)">@{{ u.username }}
+                  {% if u.profile.position %} · {{ u.profile.position }}{% endif %}
+                </div>
+              </div>
+            </a>
+          </td>
+          <td style="padding:12px 14px;text-align:center;font-size:14px;color:var(--text)">{{ u.project_count }}</td>
+          <td style="padding:12px 14px;text-align:center;font-size:14px;color:var(--text)">{{ u.task_count }}</td>
+          <td style="padding:12px 14px;text-align:center;font-size:14px;color:var(--text)">{{ u.hours_total|default:0|floatformat:1 }}</td>
+          <td style="padding:12px 14px;text-align:center">
+            {% if u.is_active %}
+            <span class="badge b-status-done" style="font-size:11px">активен</span>
+            {% else %}
+            <span class="badge b-status-deferred" style="font-size:11px">заблокирован</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 18px;text-align:center">
+            {% if u.is_superuser %}
+            <span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber);font-size:11px">админ</span>
+            {% else %}
+            <span class="badge b-date" style="font-size:11px">пользователь</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 18px;text-align:right">
+            <div style="display:flex;gap:6px;justify-content:flex-end">
+              <a href="{% url 'admin_user_detail' u.pk %}" class="btn btn-ghost btn-sm">профиль</a>
+              {% if u.pk != request.user.pk %}
+              <button onclick="toggleUser({{ u.pk }}, '{{ u.username }}', {{ u.is_active|lower }})"
+                      class="btn btn-ghost btn-sm"
+                      style="color:{% if u.is_active %}var(--amber){% else %}var(--green){% endif %}">
+                {% if u.is_active %}заблокировать{% else %}активировать{% endif %}
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  {% endif %}
-{% else %}
-  <div class="empty">задачи не найдены</div>
-{% endif %}
+</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const chartLabels = {{ chart_labels|safe }};
+const chartData   = {{ chart_data|safe }};
+const CSRF        = '{{ csrf_token }}';
+
+function cv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+// Activity chart
+(function() {
+  const c = {
+    accent: cv('--accent'), text3: cv('--text3'),
+    border: cv('--border'), bg3: cv('--bg3'),
+    text: cv('--text'), text2: cv('--text2'),
+  };
+  new Chart(document.getElementById('actChart'), {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        data: chartData,
+        backgroundColor: ctx => {
+          const v = ctx.parsed.y;
+          if (!v) return c.border;
+          if (v >= 10) return cv('--green') + 'cc';
+          if (v >= 5)  return c.accent + 'cc';
+          return c.accent + '66';
+        },
+        borderColor: 'transparent', borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: c.bg3, titleColor: c.text, bodyColor: c.text2,
+                   borderColor: c.border, borderWidth: 1,
+                   callbacks: { label: ctx => ` ${ctx.parsed.y} задач` }}
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: c.text3, font: { size: 10 }, maxTicksLimit: 15 } },
+        y: { grid: { color: c.border }, ticks: { color: c.text3, font: { size: 10 } }, beginAtZero: true },
+      }
+    }
+  });
+})();
+
+// Toggle user active/inactive
+async function toggleUser(userId, username, isActive) {
+  const action = isActive ? 'заблокировать' : 'активировать';
+  if (!confirm(`${action} пользователя ${username}?`)) return;
+  const res = await fetch(`/admin-panel/user/${userId}/toggle/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  if (res.ok) location.reload();
+  else alert('Ошибка');
+}
+</script>
 {% endblock %}

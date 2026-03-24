@@ -28,4 +28,8 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('admin-panel/user/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),
+    path('admin-panel/user/<int:user_id>/toggle/', views.admin_user_toggle, name='admin_user_toggle'),
+    path('admin-panel/user/<int:user_id>/reset-password/', views.admin_reset_password, name='admin_reset_password'),
+    path('admin-panel/user/<int:user_id>/delete/', views.admin_user_delete, name='admin_user_delete'),
+    path('admin-panel/tasks/', views.admin_tasks, name='admin_tasks'),
 ]
