@@ -680,7 +680,8 @@ function doSearch(q) {
       return;
     }
     res.innerHTML = data.results.map(m => {
-      const hi = m.text.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\]/g,'\$&'),'gi'), s => `<mark class="search-highlight">${s}</mark>`);
+      const escQ = q.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\^\$\|]/g, '\\$&');
+      const hi   = m.text.replace(new RegExp(escQ, 'gi'), s => `<mark class="search-highlight">${s}</mark>`);
       return `<div class="search-result-item" onclick="scrollToMsg(${m.id})">
         <div style="font-size:11px;color:var(--text3);margin-bottom:3px">${m.sender_display} · ${m.date} ${m.created_at}</div>
         <div style="font-size:13px;color:var(--text)">${hi.slice(0,150)}</div>
