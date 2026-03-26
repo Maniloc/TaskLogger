@@ -116,6 +116,7 @@ def _sidebar_data(request, active_conv_id=None):
     conversations = (
         Conversation.objects
         .filter(participants=request.user)
+        .exclude(is_saved=True)          # saved is shown separately as first item
         .prefetch_related('participants', 'settings')
         .annotate(last_msg_time=Max('messages__created_at'))
         .order_by('-last_msg_time')

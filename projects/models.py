@@ -189,6 +189,8 @@ class Conversation(models.Model):
 
     def display_title(self, user):
         """Human-readable title for sidebar."""
+        if self.is_saved:
+            return 'Избранное'
         if self.is_group:
             return self.title or 'Беседа'
         other = self.other_participant(user)
