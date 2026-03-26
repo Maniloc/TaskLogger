@@ -2,6 +2,18 @@
 {% block title %}Отчёт — TaskLogger{% endblock %}
 {% block content %}
 
+<style>
+.field-toggle { display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--text2);border:1px solid var(--border);background:var(--bg3);transition:all .12s;user-select:none; }
+.field-toggle input { display:none; }
+.field-toggle.on  { background:var(--accent-bg);border-color:var(--accent);color:var(--accent2);font-weight:500; }
+.field-toggle.req { opacity:.6;cursor:default;background:var(--surface);border-color:var(--border2); }
+.field-toggle .dot { width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;display:none; }
+.field-toggle.on .dot { display:block; }
+.report-group { margin-bottom:2rem; }
+.report-group-hdr { font-size:15px;font-weight:700;color:var(--accent2);padding:8px 0 4px;border-bottom:2px solid var(--accent);margin-bottom:10px;display:flex;align-items:baseline;gap:10px; }
+.report-group-meta { font-size:12px;color:var(--text3);font-weight:400; }
+</style>
+
 <div class="page-header">
   <div>
     <div class="page-title">отчёт</div>
@@ -9,8 +21,8 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     {% if tasks %}
-    <form method="get" style="display:contents">
-      {% for k,v in request.GET.items %}{% if k != 'format' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{%endif%}{% endfor %}
+    <form method="get" style="display:contents" id="xlsx-form">
+      {% for k,v in request.GET.items %}{% if k != 'format' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
       <input type="hidden" name="format" value="xlsx">
       <button type="submit" class="btn btn-ghost btn-sm">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -21,9 +33,10 @@
   </div>
 </div>
 
-<!-- Filters -->
-<div class="filter-bar" style="margin-bottom:1.25rem">
-  <form method="get" style="display:contents">
+<!-- Filters + field constructor -->
+<form method="get" id="report-form">
+  <!-- Filters row -->
+  <div class="filter-bar" style="margin-bottom:10px">
     <select name="project" style="min-width:160px">
       <option value="">все проекты</option>
       {% for p in projects %}<option value="{{ p.pk }}"{% if p.pk|stringformat:"s" == selected_project %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
@@ -35,16 +48,32 @@
       <option value="">все статусы</option>
       {% for val,label in status_choices %}<option value="{{ val }}"{% if val == status_filter %} selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
-    <select name="group">
-      <option value="project"{% if group_by == 'project' %} selected{% endif %}>по проектам</option>
-      <option value="date"{% if group_by == 'date' %} selected{% endif %}>по датам</option>
-    </select>
     <button type="submit" class="btn btn-ghost btn-sm">применить</button>
-    {% if selected_project or date_from or date_to or status_filter %}
     <a href="{% url 'report' %}" class="btn btn-ghost btn-sm">сброс</a>
-    {% endif %}
-  </form>
-</div>
+  </div>
+
+  <!-- Field constructor -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:1.25rem">
+    <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+      Поля отчёта
+      <span style="font-weight:400;font-size:11px;color:var(--text3)">(обязательные фиксированы)</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      {% for key, meta in report_fields.items %}
+      {% if key in required_fields %}
+      <span class="field-toggle req on">
+        <span class="dot"></span>{{ meta.0 }}
+      </span>
+      {% else %}
+      <label class="field-toggle {% if key in active_fields %}on{% endif %}" onclick="this.classList.toggle('on')">
+        <input type="checkbox" name="f_{{ key }}" value="1" {% if key in active_fields %}checked{% endif %} onchange="this.closest('form').submit()">
+        <span class="dot"></span>{{ meta.0 }}
+      </label>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</form>
 
 {% if tasks %}
 <!-- Summary bar -->
@@ -52,36 +81,49 @@
   <div style="font-size:13px;color:var(--text2)"><span style="font-weight:600;color:var(--text)">{{ tasks|length }}</span> задач</div>
   <div style="font-size:13px;color:var(--text2)"><span style="font-weight:600;color:var(--text)">{{ total_hours|floatformat:1 }}ч</span> итого</div>
   <div style="margin-left:auto;display:flex;gap:6px">
-    <button onclick="document.getElementById('text-view').style.display='none';document.getElementById('table-view').style.display='block';this.style.color='var(--text)';this.nextElementSibling.style.color=''" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px;color:var(--text)">таблица</button>
-    <button onclick="document.getElementById('table-view').style.display='none';document.getElementById('text-view').style.display='block';this.style.color='var(--text)';this.previousElementSibling.style.color=''" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px">текст</button>
+    <button id="btn-table" onclick="switchView('table')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px;color:var(--text)">таблица</button>
+    <button id="btn-text"  onclick="switchView('text')"  class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 9px">текст</button>
   </div>
 </div>
 
-<!-- Table view -->
+<!-- Table view — grouped by project -->
 <div id="table-view">
-  {% regroup tasks by project as tasks_by_project %}
-  {% for proj_tasks in tasks_by_project %}
-  <div style="margin-bottom:1.5rem">
-    <div class="report-group-title">
-      {{ proj_tasks.grouper.name }}
-      <span style="font-size:13px;font-weight:400;color:var(--text3)">
-        {{ proj_tasks.list|length }} задач
-        {% with hours=proj_tasks.list %}·{% endwith %}
+  {% for proj, proj_tasks in grouped.items %}
+  <div class="report-group">
+    <div class="report-group-hdr">
+      {{ proj.name }}
+      <span class="report-group-meta">
+        {{ proj_tasks|length }} задач
+        {% with hrs=0 %}·{% endwith %}
+        {% for t in proj_tasks %}{% if t.hours %}{% with h=t.hours %}{% endwith %}{% endif %}{% endfor %}
       </span>
     </div>
-    {% for task in proj_tasks.list %}
+
+    {% if 'project_initiator' in active_fields and proj.initiator %}
+    <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Инициатор: {{ proj.initiator }}</div>
+    {% endif %}
+    {% if 'project_basis' in active_fields and proj.description %}
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Обоснование: {{ proj.description }}</div>
+    {% endif %}
+
+    {% for task in proj_tasks %}
     <div class="card" style="margin-bottom:6px;border-left:3px solid {{ task.status_color }}">
       <div class="task-row">
         <div class="dot dot-{{ task.status }}"></div>
         <div style="flex:1">
           <div class="task-text">{{ task.task }}</div>
           <div class="task-meta">
-            <span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>
-            {% if task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
-            {% if task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
-            <span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>
+            {% if 'date' in active_fields %}<span class="badge b-date">{{ task.date|date:"d.m.Y" }}</span>{% endif %}
+            {% if 'hours' in active_fields and task.hours %}<span class="badge b-hours">{{ task.hours }}ч</span>{% endif %}
+            {% if 'status' in active_fields %}<span class="badge b-status-{{ task.status }}">{{ task.get_status_display }}</span>{% endif %}
+            {% if 'initiator' in active_fields and task.initiator %}<span class="badge b-init">{{ task.initiator }}</span>{% endif %}
+            {% if 'assigned_to' in active_fields and task.assigned_to %}
+            <span class="badge b-proj">→ {% if task.assigned_to.profile.display_name %}{{ task.assigned_to.profile.display_name }}{% else %}{{ task.assigned_to.username }}{% endif %}</span>
+            {% endif %}
+            {% if 'start_date' in active_fields and task.start_date %}<span class="badge b-date">с {{ task.start_date|date:"d.m.Y" }}</span>{% endif %}
+            {% if 'due_date' in active_fields and task.due_date %}<span class="badge b-date">до {{ task.due_date|date:"d.m.Y" }}</span>{% endif %}
           </div>
-          {% if task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
+          {% if 'task_basis' in active_fields and task.basis %}<div class="task-basis">обоснование: {{ task.basis }}</div>{% endif %}
         </div>
       </div>
     </div>
@@ -90,37 +132,47 @@
   {% endfor %}
 </div>
 
-<!-- Text view (for copy-paste) -->
+<!-- Text view -->
 <div id="text-view" style="display:none">
   <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-    <button onclick="copyText()" class="btn btn-ghost btn-sm" id="copy-btn">скопировать текст</button>
+    <button onclick="copyText()" class="btn btn-ghost btn-sm" id="copy-btn">скопировать</button>
   </div>
-  <div class="text-report" id="text-content">{{ text_report }}</div>
+  <pre class="text-report" id="text-content" style="white-space:pre-wrap;word-break:break-word">{{ text_report }}</pre>
 </div>
 
 {% else %}
-<div class="empty">
-  <div class="empty-icon">📋</div>
-  {% if selected_project or date_from or date_to %}задачи по выбранным фильтрам не найдены
-  {% else %}нет задач для отображения{% endif %}
-</div>
+<div class="empty"><div class="empty-icon">📊</div>Нет задач за выбранный период</div>
 {% endif %}
 
 <script>
+function switchView(v) {
+  const t = document.getElementById('table-view');
+  const x = document.getElementById('text-view');
+  const bt = document.getElementById('btn-table');
+  const bx = document.getElementById('btn-text');
+  if (v === 'table') { t.style.display=''; x.style.display='none'; bt.style.color='var(--text)'; bx.style.color=''; }
+  else               { t.style.display='none'; x.style.display=''; bx.style.color='var(--text)'; bt.style.color=''; }
+  localStorage.setItem('report_view', v);
+}
+// Restore last view
+const lv = localStorage.getItem('report_view');
+if (lv === 'text') switchView('text');
+
 function copyText() {
-  const el = document.getElementById('text-content');
-  const text = el.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = 'скопировано!';
-    setTimeout(() => btn.textContent = 'скопировать текст', 2000);
-  }).catch(() => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-    document.execCommand('copy');
+  const t = document.getElementById('text-content');
+  navigator.clipboard.writeText(t.innerText).then(() => {
+    const b = document.getElementById('copy-btn');
+    b.textContent = '✓ скопировано'; b.style.color = 'var(--green)';
+    setTimeout(() => { b.textContent = 'скопировать'; b.style.color = ''; }, 2000);
   });
 }
+
+// Field toggles: clicking label triggers checkbox change → form submit
+document.querySelectorAll('.field-toggle:not(.req) input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    document.getElementById('report-form').submit();
+  });
+});
 </script>
+
 {% endblock %}
