@@ -272,7 +272,13 @@ def chat_poll(request, conv_id):
     # Online statuses of conv participants
     online = {}
     for p in conv.participants.select_related('profile').all():
-        online[p.pk] = p.profile.is_online if hasattr(p, 'profile') else False
+        try:
+            prof = p.profile
+            is_on = prof.is_online
+            last = localtime(prof.last_seen).strftime('%d.%m.%Y в %H:%M') if prof.last_seen and not is_on else None
+            online[p.pk] = {'online': is_on, 'last_seen': last}
+        except Exception:
+            online[p.pk] = {'online': False, 'last_seen': None}
 
     total_unread = (
         Message.objects

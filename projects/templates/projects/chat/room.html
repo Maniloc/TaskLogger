@@ -75,7 +75,10 @@
           {% elif other.profile.is_online %}
             <span class="online-dot"></span> онлайн
           {% else %}
-            {% if other.profile.last_seen %}был(а) {{ other.profile.last_seen|date:"d.m в H:i" }}{% else %}не в сети{% endif %}
+            {% if other.profile.last_seen %}
+              <span class="offline-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3);margin-right:3px;vertical-align:middle"></span>
+              был(а) {{ other.profile.last_seen|date:"d.m.Y в H:i" }} МСК
+            {% else %}не в сети{% endif %}
           {% endif %}
         </div>
       </div>
@@ -807,9 +810,17 @@ function toggleMembers() {
 // ── Online status display ──
 function updateOnlineUI(onlineMap) {
   {% if not conv.is_group and other %}
-  const isOn = onlineMap[{{ other.pk }}];
-  const sub = document.getElementById('status-sub');
-  if (sub) sub.innerHTML = isOn ? '<span class="online-dot"></span> онлайн' : 'не в сети';
+  const entry = onlineMap[{{ other.pk }}];
+  const isOn  = entry && entry.online;
+  const sub   = document.getElementById('status-sub');
+  if (!sub) return;
+  if (isOn) {
+    sub.innerHTML = '<span class="online-dot"></span> онлайн';
+  } else if (entry && entry.last_seen) {
+    sub.innerHTML = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3);margin-right:3px;vertical-align:middle"></span>был(а) ' + entry.last_seen + ' МСК';
+  } else {
+    sub.innerHTML = 'не в сети';
+  }
   {% endif %}
 }
 
