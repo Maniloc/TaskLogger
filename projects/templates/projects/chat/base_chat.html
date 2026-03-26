@@ -115,6 +115,11 @@ body:has(.chat-layout) .container { padding-top: 0.75rem; padding-bottom: 0; }
 .msg-edit-cancel { background: none; color: var(--text3); }
 
 /* Context menu */
+.msg-read-tick {
+  display: inline-flex; align-items: center;
+  align-self: flex-end; flex-shrink: 0; margin-left: 1px;
+}
+
 .ctx-menu { position: fixed; background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 5px; min-width: 160px; box-shadow: 0 8px 32px rgba(0,0,0,.4); z-index: 9998; animation: ctxIn .1s ease; }
 @keyframes ctxIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
 .ctx-item { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border-radius: 7px; font-size: 13px; color: var(--text2); cursor: pointer; transition: background .1s,color .1s; font-family: inherit; background: none; border: none; width: 100%; text-align: left; }

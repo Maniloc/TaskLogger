@@ -52,6 +52,7 @@ def _msg_to_dict(msg, current_user):
         'date': msg.created_at.strftime('%d.%m.%Y'),
         'mine': msg.sender_id == current_user.pk,
         'avatar': av,
+        'is_read': msg.is_read,
     }
     if msg.file:
         d['file'] = {
@@ -267,11 +268,19 @@ def chat_poll(request, conv_id):
     )
     is_muted = _get_mute(request.user, conv)
 
+    # IDs of MY messages that are now read (so JS can update tick to ✓✓)
+    read_ids = list(
+        conv.messages
+        .filter(sender=request.user, is_read=True, pk__gt=since_id - 200)
+        .values_list('pk', flat=True)[:50]
+    )
+
     return JsonResponse({
         'messages': [_msg_to_dict(m, request.user) for m in new_msgs],
         'total_unread': total_unread,
         'online': online,
         'is_muted': is_muted,
+        'read_ids': read_ids,
     })
 
 
@@ -328,3 +337,81 @@ def chat_delete(request, msg_id):
             pass
     msg.delete()
     return JsonResponse({'id': msg_id, 'deleted': True})
+
+
+@login_required
+@require_POST
+def chat_clear(request, conv_id):
+    """Delete all messages in conversation (for current user it just clears their view)."""
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    # Only creator / DM participant can clear
+    conv.messages.all().delete()
+    return JsonResponse({'cleared': True})
+
+
+@login_required
+@require_POST  
+def chat_leave(request, conv_id):
+    """Leave / delete conversation."""
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    if conv.is_group:
+        # Just leave the group
+        conv.participants.remove(request.user)
+        # If no participants left, delete
+        if conv.participants.count() == 0:
+            conv.delete()
+    else:
+        # For DM: delete conversation and all messages
+        conv.messages.all().delete()
+        conv.delete()
+    return JsonResponse({'left': True})
+
+
+@login_required
+@require_POST
+def chat_add_member(request, conv_id):
+    """Add user to group conversation."""
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    if not conv.is_group:
+        return JsonResponse({'error': 'Только для бесед'}, status=400)
+    # Only creator can add
+    if conv.created_by_id and conv.created_by_id != request.user.pk:
+        return JsonResponse({'error': 'Только создатель может добавлять участников'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        user_id = int(data.get('user_id', 0))
+    except Exception:
+        return JsonResponse({'error': 'Неверные данные'}, status=400)
+    
+    user = get_object_or_404(User, pk=user_id)
+    if conv.participants.filter(pk=user_id).exists():
+        return JsonResponse({'error': 'Пользователь уже в беседе'}, status=400)
+    
+    conv.participants.add(user)
+    # Notify in chat
+    try:
+        adder_name = _display_name(request.user)
+        new_name   = _display_name(user)
+        Message.objects.create(
+            conversation=conv, sender=request.user,
+            text=f'➕ {adder_name} добавил(а) {new_name} в беседу'
+        )
+    except Exception:
+        pass
+    
+    try:
+        av = user.profile
+        avatar = {'type': 'img', 'url': av.avatar.url} if av.avatar else {
+            'type': 'initials', 'text': av.initials or user.username[:2].upper(),
+            'color': av.avatar_color or ''
+        }
+    except Exception:
+        avatar = {'type': 'initials', 'text': user.username[:1].upper(), 'color': ''}
+    
+    return JsonResponse({
+        'user_id': user.pk,
+        'username': user.username,
+        'display_name': _display_name(user),
+        'avatar': avatar,
+    })

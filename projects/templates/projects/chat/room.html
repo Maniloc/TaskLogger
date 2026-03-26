@@ -84,6 +84,28 @@
               class="chat-action-btn" style="{% if is_muted %}color:var(--amber){% endif %}">
         {% if is_muted %}🔕{% else %}🔔{% endif %}
       </button>
+      <!-- Chat menu -->
+      <button id="chat-menu-btn" class="chat-action-btn" onclick="toggleChatMenu(event)" title="Действия">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </button>
+      <!-- Dropdown menu -->
+      <div id="chat-action-menu" style="display:none;position:absolute;top:52px;right:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:5px;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:200;animation:ctxIn .1s ease">
+        {% if conv.is_group %}
+        <button class="ctx-item" onclick="openAddMember()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Добавить участника
+        </button>
+        {% endif %}
+        <button class="ctx-item" onclick="clearChat()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Очистить историю
+        </button>
+        <div class="ctx-sep"></div>
+        <button class="ctx-item danger" onclick="leaveChat()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          {% if conv.is_group %}Покинуть беседу{% else %}Удалить диалог{% endif %}
+        </button>
+      </div>
     </div>
 
     <!-- Group members panel (hidden by default) -->
@@ -116,6 +138,30 @@
     </div>
     {% endif %}
 
+    <!-- Add member modal -->
+    {% if conv.is_group %}
+    <div id="add-member-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)closeAddMember()">
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div style="font-size:15px;font-weight:600;color:var(--text)">Добавить участника</div>
+          <button onclick="closeAddMember()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <input type="text" id="add-member-search" class="chat-search" placeholder="Найти пользователя..." oninput="filterAddMembers()" style="margin-bottom:8px">
+        <div id="add-member-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for u in all_users %}
+          {% if not u in conv.participants.all %}
+          <div class="chat-user-item" data-uid="{{ u.pk }}" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}" onclick="addMember({{ u.pk }}, this)">
+            {% if u.profile.avatar %}<img src="{{ u.profile.avatar.url }}" alt="аватар" class="chat-user-av" style="object-fit:cover">
+            {% else %}<div class="chat-user-av" style="{% if u.profile.avatar_color %}background:{{ u.profile.avatar_color }}{% endif %}">{{ u.profile.initials|default:u.username|first|upper }}</div>{% endif %}
+            <div class="chat-user-name">{% if u.profile.display_name %}{{ u.profile.display_name }}{% else %}{{ u.username }}{% endif %}</div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Messages -->
     <div class="chat-messages" id="messages">
       {% for msg in messages_qs %}
@@ -142,6 +188,15 @@
           {% endif %}
         </div>
         <span class="msg-time">{{ msg.created_at|date:"H:i" }}</span>
+        {% if msg.sender == request.user %}
+        <span class="msg-read-tick" title="{% if msg.is_read %}Прочитано{% else %}Доставлено{% endif %}">
+          {% if msg.is_read %}
+          <svg width="14" height="10" viewBox="0 0 16 10" fill="none" stroke="var(--accent2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,5 5,9 12,1"/><polyline points="7,9 14,1"/></svg>
+          {% else %}
+          <svg width="10" height="10" viewBox="0 0 12 10" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,5 5,9 11,1"/></svg>
+          {% endif %}
+        </span>
+        {% endif %}
         <div class="msg-edit-form">
           <textarea class="msg-edit-input" rows="1"></textarea>
           <button class="msg-edit-save" onclick="saveEdit({{ msg.pk }}, this)">✓</button>
@@ -346,7 +401,13 @@ function renderMsg(m) {
   if (IS_GROUP && !m.mine) content = `<div class="msg-sender-name">${esc(m.sender_display||m.sender)}</div>` + content;
   if (m.file) content += renderFileBlock(m.file);
 
-  row.innerHTML = `<div class="msg-av-wrap">${avHtml}</div><div class="msg-bubble">${content}</div><span class="msg-time">${m.created_at}</span><div class="msg-edit-form"><textarea class="msg-edit-input" rows="1"></textarea><button class="msg-edit-save" onclick="saveEdit(${m.id},this)">✓</button><button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button></div>`;
+  const tickHtml = m.mine
+    ? `<span class="msg-read-tick" title="${m.is_read?'Прочитано':'Доставлено'}">${
+        m.is_read
+          ? '<svg width="14" height="10" viewBox="0 0 16 10" fill="none" stroke="var(--accent2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,5 5,9 12,1"/><polyline points="7,9 14,1"/></svg>'
+          : '<svg width="10" height="10" viewBox="0 0 12 10" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,5 5,9 11,1"/></svg>'
+      }</span>` : '';
+  row.innerHTML = `<div class="msg-av-wrap">${avHtml}</div><div class="msg-bubble">${content}</div><span class="msg-time">${m.created_at}</span>${tickHtml}<div class="msg-edit-form"><textarea class="msg-edit-input" rows="1"></textarea><button class="msg-edit-save" onclick="saveEdit(${m.id},this)">✓</button><button class="msg-edit-cancel" onclick="cancelEdit(this)">✕</button></div>`;
   row.addEventListener('contextmenu', e => showCtx(e, m.id, m.mine));
   msgs.appendChild(row);
 }
@@ -401,6 +462,103 @@ function cancelEdit(el){el.closest('.msg-row').classList.remove('msg-editing');}
 async function saveEdit(id,el){const row=el.closest('.msg-row'),inp=row.querySelector('.msg-edit-input'),text=inp.value.trim();if(!text)return;const r=await fetch(`/chat/msg/${id}/edit/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({text})});if(r.ok){const t=row.querySelector('.msg-text');if(t)t.innerHTML=esc(text);row.classList.remove('msg-editing');}}
 async function deleteMsg(id){if(!confirm('Удалить сообщение?'))return;const r=await fetch(`/chat/msg/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}});if(r.ok){const row=document.querySelector(`.msg-row[data-id="${id}"]`);if(row){row.style.transition='opacity .2s,transform .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(()=>row.remove(),200);}}}
 
+// ── Chat action menu ──
+function toggleChatMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('chat-action-menu');
+  if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', e => {
+  const menu = document.getElementById('chat-action-menu');
+  const btn  = document.getElementById('chat-menu-btn');
+  if (menu && menu.style.display === 'block' && !menu.contains(e.target) && btn && !btn.contains(e.target))
+    menu.style.display = 'none';
+});
+
+async function clearChat() {
+  document.getElementById('chat-action-menu').style.display = 'none';
+  if (!confirm('Очистить всю историю сообщений? Действие нельзя отменить.')) return;
+  const res = await fetch(`/chat/${CONV_ID}/clear/`, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+  if (res.ok) {
+    document.getElementById('messages').innerHTML =
+      '<div style="text-align:center;color:var(--text3);font-size:13px;padding:2rem">История очищена</div>';
+    lastId = 0; lastDate = null;
+  }
+}
+
+async function leaveChat() {
+  document.getElementById('chat-action-menu').style.display = 'none';
+  if (!confirm(IS_GROUP ? 'Покинуть беседу?' : 'Удалить диалог и все сообщения?')) return;
+  const res = await fetch(`/chat/${CONV_ID}/leave/`, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+  if (res.ok) window.location.href = '/chat/';
+}
+
+// ── Add member ──
+function openAddMember() {
+  document.getElementById('chat-action-menu').style.display = 'none';
+  const modal = document.getElementById('add-member-modal');
+  if (modal) { modal.style.display = 'flex'; document.getElementById('add-member-search').focus(); }
+}
+function closeAddMember() {
+  const modal = document.getElementById('add-member-modal');
+  if (modal) modal.style.display = 'none';
+}
+function filterAddMembers() {
+  const q = document.getElementById('add-member-search').value.toLowerCase();
+  document.querySelectorAll('#add-member-list .chat-user-item').forEach(el => {
+    el.style.display = (el.dataset.name||'').includes(q) ? '' : 'none';
+  });
+}
+async function addMember(userId, el) {
+  const res = await fetch(`/chat/${CONV_ID}/add-member/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({user_id: userId}),
+  });
+  if (res.ok) {
+    const data = await res.json();
+    el.remove();
+    // Add pill to members panel
+    const container = document.querySelector('#members-panel > div:last-child');
+    if (container) {
+      const pill = document.createElement('a');
+      pill.href = `/profile/${data.user_id}/`;
+      pill.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:20px;border:1px solid var(--border);text-decoration:none';
+      const av = data.avatar;
+      const avEl = av.type==='img'
+        ? `<img src="${av.url}" alt="аватар" style="width:20px;height:20px;border-radius:50%;object-fit:cover">`
+        : `<div style="width:20px;height:20px;border-radius:50%;background:${av.color||'var(--surface)'};color:var(--text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">${av.text}</div>`;
+      pill.innerHTML = `${avEl}<span style="font-size:12px;color:var(--text2)">${data.display_name}</span>`;
+      container.appendChild(pill);
+    }
+    closeAddMember();
+    // Refresh to show system message
+    setTimeout(async () => {
+      const r = await fetch(`${POLL_URL}?since=${lastId}`);
+      const d = await r.json();
+      d.messages.forEach(m => { if(m.id>lastId){renderMsg(m);lastId=m.id;} });
+      scrollBottom(true);
+    }, 800);
+  } else {
+    const err = await res.json().catch(()=>({}));
+    alert(err.error || 'Ошибка при добавлении');
+  }
+}
+
+// ── Read receipts ──
+function updateReadReceipts(readIds) {
+  readIds.forEach(id => {
+    const row = document.querySelector(`.msg-row[data-id="${id}"]`);
+    if (row) {
+      const tick = row.querySelector('.msg-read-tick');
+      if (tick) {
+        tick.innerHTML = '<svg width="14" height="10" viewBox="0 0 16 10" fill="none" stroke="var(--accent2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,5 5,9 12,1"/><polyline points="7,9 14,1"/></svg>';
+        tick.title = 'Прочитано';
+      }
+    }
+  });
+}
+
 // ── Group members panel ──
 function toggleMembers() {
   const p = document.getElementById('members-panel');
@@ -432,6 +590,7 @@ async function poll() {
     updateNavBadge(data.total_unread);
     if(data.online)updateOnlineUI(data.online);
     isMuted=data.is_muted;
+    if(data.read_ids&&data.read_ids.length) updateReadReceipts(data.read_ids);
   } catch(e){}
   setTimeout(poll,2000);
 }
