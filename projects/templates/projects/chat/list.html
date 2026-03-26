@@ -14,19 +14,27 @@
       {% include 'projects/chat/_new_panel.html' %}
     </div>
     <div class="chat-conv-list">
+      <a href="{% url 'chat_saved' %}" class="chat-conv-item saved-conv">
+        <div class="chat-av" style="background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:16px">🔖</div>
+        <div class="chat-conv-body">
+          <div class="chat-conv-name">Избранное</div>
+          <div class="chat-conv-preview">Сохранённые сообщения</div>
+        </div>
+      </a>
       {% for item in convs_data %}
-      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item">
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.is_pinned %}pinned-conv{% endif %}">
         {% if item.conv.is_group %}
         <div class="chat-av group">👥</div>
-        {% elif item.other.profile.avatar %}
+        {% elif item.other and item.other.profile.avatar %}
         <img src="{{ item.other.profile.avatar.url }}" alt="аватар" class="chat-av">
-        {% else %}
+        {% elif item.other %}
         <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
         {% endif %}
         <div class="chat-conv-body">
           <div class="chat-conv-name">
             {{ item.title }}
             {% if item.muted %}<span class="muted-icon">🔕</span>{% endif %}
+            {% if item.is_pinned %}<span class="pin-icon" title="Закреплён">📌</span>{% endif %}
           </div>
           <div class="chat-conv-preview">
             {% if item.last %}{% if item.last.file %}📎 {{ item.last.file_name|default:"файл" }}{% else %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:28 }}{% endif %}{% else %}нет сообщений{% endif %}

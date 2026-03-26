@@ -1,5 +1,5 @@
 {% extends 'projects/chat/base_chat.html' %}
-{% block title %}{% if conv.is_group %}{{ conv.title|default:"Беседа" }}{% else %}{{ other.username }}{% endif %} — Чат{% endblock %}
+{% block title %}{% if conv.is_saved %}Избранное{% elif conv.is_group %}{{ conv.title|default:"Беседа" }}{% elif other %}{{ other.username }}{% else %}Чат{% endif %} — Чат{% endblock %}
 {% block chat_content %}
 <script src="https://cdn.jsdelivr.net/npm/emoji-mart@5/dist/browser.js"></script>
 
@@ -17,17 +17,28 @@
       {% include 'projects/chat/_new_panel.html' %}
     </div>
     <div class="chat-conv-list">
+      <a href="{% url 'chat_saved' %}" class="chat-conv-item saved-conv {% if conv.is_saved %}active{% endif %}">
+        <div class="chat-av" style="background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:16px">🔖</div>
+        <div class="chat-conv-body">
+          <div class="chat-conv-name">Избранное</div>
+          <div class="chat-conv-preview">Сохранённые сообщения</div>
+        </div>
+      </a>
       {% for item in convs_data %}
-      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %}">
-        {% if item.conv.is_group %}
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %} {% if item.is_pinned %}pinned-conv{% endif %}">
+        {% if item.conv.is_saved %}
+        <div class="chat-av" style="background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:15px">🔖</div>
+        {% elif item.conv.is_group %}
         <div class="chat-av group">👥</div>
-        {% elif item.other.profile.avatar %}
+        {% elif item.other and item.other.profile.avatar %}
         <img src="{{ item.other.profile.avatar.url }}" alt="аватар" class="chat-av">
-        {% else %}
+        {% elif item.other %}
         <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
+        {% else %}
+        <div class="chat-av">?</div>
         {% endif %}
         <div class="chat-conv-body">
-          <div class="chat-conv-name">{{ item.title }}{% if item.muted %}<span class="muted-icon">🔕</span>{% endif %}</div>
+          <div class="chat-conv-name">{{ item.title }}{% if item.muted %}<span class="muted-icon">🔕</span>{% endif %}{% if item.is_pinned %}<span class="pin-icon" title="Закреплён">📌</span>{% endif %}</div>
           <div class="chat-conv-preview">
             {% if item.last %}{% if item.last.file %}📎 {{ item.last.file_name|default:"файл" }}{% else %}{% if item.last.sender == request.user %}вы: {% endif %}{{ item.last.text|truncatechars:28 }}{% endif %}{% else %}нет сообщений{% endif %}
           </div>
@@ -47,9 +58,11 @@
 
     <!-- Header -->
     <div class="chat-main-header">
-      {% if conv.is_group %}
+      {% if conv.is_saved %}
+      <div class="chat-av" style="width:34px;height:34px;font-size:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));flex-shrink:0">🔖</div>
+      {% elif conv.is_group %}
       <div class="chat-av group" style="width:34px;height:34px;font-size:16px;flex-shrink:0">👥</div>
-      {% elif other.profile.avatar %}
+      {% elif other and other.profile.avatar %}
       <a href="{% url 'user_profile' other.pk %}" title="Профиль {{ other.username }}" style="flex-shrink:0">
         <img src="{{ other.profile.avatar.url }}" alt="аватар" style="width:34px;height:34px;border-radius:50%;object-fit:cover;display:block">
       </a>
@@ -60,9 +73,10 @@
       {% endif %}
       <div style="flex:1;min-width:0">
         <div class="chat-main-name" style="display:flex;align-items:center;gap:8px">
-          {% if conv.is_group %}{{ conv.title|default:"Беседа" }}
-          {% elif other.profile.display_name %}{{ other.profile.display_name }}
-          {% else %}{{ other.username }}{% endif %}
+          {% if conv.is_saved %}🔖 Избранное
+          {% elif conv.is_group %}{{ conv.title|default:"Беседа" }}
+          {% elif other and other.profile.display_name %}{{ other.profile.display_name }}
+          {% elif other %}{{ other.username }}{% endif %}
           {% if conv.is_group %}
           <button onclick="toggleMembers()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);transition:all .12s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" title="Участники беседы">
             👥 {{ group_members|length|add:1 }}
@@ -70,11 +84,13 @@
           {% endif %}
         </div>
         <div class="chat-main-sub" id="status-sub">
-          {% if conv.is_group %}
+          {% if conv.is_saved %}
+            Сохраняйте сообщения, заметки и файлы
+          {% elif conv.is_group %}
             беседа · {{ group_members|length|add:1 }} участников
-          {% elif other.profile.is_online %}
+          {% elif other and other.profile.is_online %}
             <span class="online-dot"></span> онлайн
-          {% else %}
+          {% elif other %}
             {% if other.profile.last_seen %}
               <span class="offline-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3);margin-right:3px;vertical-align:middle"></span>
               был(а) {{ other.profile.last_seen|date:"d.m.Y в H:i" }} МСК
@@ -103,6 +119,10 @@
           Добавить участника
         </button>
         {% endif %}
+        <button class="ctx-item" onclick="togglePin()" id="pin-menu-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+          <span id="pin-menu-label">{% if is_pinned %}Открепить{% else %}Закрепить{% endif %}</span>
+        </button>
         <button class="ctx-item" onclick="clearChat()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
           Очистить историю
@@ -282,9 +302,9 @@
         <input type="checkbox" value="{{ item.conv.pk }}" style="width:15px;height:15px;accent-color:var(--accent)">
         {% if item.conv.is_group %}
         <div style="width:28px;height:28px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👥</div>
-        {% elif item.other.profile.avatar %}
+        {% elif item.other and item.other.profile.avatar %}
         <img src="{{ item.other.profile.avatar.url }}" alt="аватар" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">
-        {% else %}
+        {% elif item.other %}
         <div style="width:28px;height:28px;border-radius:50%;background:{% if item.other.profile.avatar_color %}{{ item.other.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
         {% endif %}
         <span style="font-size:13px;color:var(--text)">{{ item.title }}</span>
@@ -307,6 +327,8 @@
 const CONV_ID   = {{ conv.pk }};
 const ME_ID     = {{ request.user.pk }};
 const IS_GROUP  = {{ conv.is_group|lower }};
+const IS_SAVED  = {{ conv.is_saved|lower }};
+let   IS_PINNED = {{ is_pinned|lower }};
 const SEND_URL  = '{% url "chat_send" conv.pk %}';
 const POLL_URL  = '{% url "chat_poll" conv.pk %}';
 const MUTE_URL  = '{% url "chat_mute" conv.pk %}';
@@ -703,6 +725,26 @@ function scrollToMsg(msgId) {
   document.getElementById('search-results').style.display = 'none';
 }
 
+// ── Pin / Unpin ──
+async function togglePin() {
+  document.getElementById('chat-action-menu').style.display = 'none';
+  const res = await fetch(`/chat/${CONV_ID}/pin/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  });
+  if (res.ok) {
+    const d = await res.json();
+    IS_PINNED = d.is_pinned;
+    const label = document.getElementById('pin-menu-label');
+    if (label) label.textContent = IS_PINNED ? 'Открепить' : 'Закрепить';
+    // Update sidebar pin icon for this conv
+    const link = document.querySelector(`.chat-conv-item[href="/chat/${CONV_ID}/"]`);
+    if (link) {
+      if (IS_PINNED) link.classList.add('pinned-conv');
+      else           link.classList.remove('pinned-conv');
+    }
+  }
+}
+
 // ── Chat action menu ──
 function toggleChatMenu(e) {
   e.stopPropagation();
@@ -811,7 +853,7 @@ function toggleMembers() {
 // ── Online status display ──
 function updateOnlineUI(onlineMap) {
   {% if not conv.is_group and other %}
-  const entry = onlineMap[{{ other.pk }}];
+  {% if other %}const entry = onlineMap[{{ other.pk }}];{% else %}const entry = null;{% endif %}
   const isOn  = entry && entry.online;
   const sub   = document.getElementById('status-sub');
   if (!sub) return;

@@ -59,6 +59,10 @@ body:has(.chat-layout) .container { padding-top: 0.75rem; padding-bottom: 0; }
 .chat-conv-name { font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 5px; }
 .chat-conv-preview { font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 .chat-conv-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.pin-icon { font-size: 11px; opacity: .6; transform: rotate(45deg); display: inline-block; }
+.saved-conv { background: var(--accent-bg) !important; }
+.saved-conv .chat-conv-name { color: var(--accent2); font-weight: 600; }
+.pinned-conv { border-left: 2px solid var(--amber) !important; }
 .chat-conv-time { font-size: 11px; color: var(--text3); white-space: nowrap; }
 .chat-unread-badge { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; min-width: 18px; text-align: center; }
 .muted-icon { font-size: 12px; opacity: .5; }

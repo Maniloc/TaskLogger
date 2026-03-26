@@ -105,28 +105,47 @@ def _get_mute(user, conv):
     return s.is_muted if s else False
 
 
+def _get_conv_settings(user, conv):
+    s = ConversationSettings.objects.filter(user=user, conversation=conv).first()
+    if s:
+        return s
+    return None
+
+
 def _sidebar_data(request, active_conv_id=None):
     conversations = (
         Conversation.objects
         .filter(participants=request.user)
-        .prefetch_related('participants')
+        .prefetch_related('participants', 'settings')
         .annotate(last_msg_time=Max('messages__created_at'))
         .order_by('-last_msg_time')
     )
     convs_data = []
     for c in conversations:
         other = c.other_participant(request.user)
-        last = c.last_message()
+        last  = c.last_message()
         unread = c.unread_count(request.user) if c.pk != active_conv_id else 0
-        muted = _get_mute(request.user, c)
+        s = _get_conv_settings(request.user, c)
+        is_pinned = s.is_pinned if s else False
+        pin_order = s.pin_order if s else 0
+        muted     = s.is_muted  if s else False
         convs_data.append({
-            'conv': c,
-            'other': other,
-            'last': last,
-            'unread': unread,
-            'muted': muted,
-            'title': c.display_title(request.user),
+            'conv':      c,
+            'other':     other,
+            'last':      last,
+            'unread':    unread,
+            'muted':     muted,
+            'is_pinned': is_pinned,
+            'pin_order': pin_order,
+            'title':     c.display_title(request.user),
         })
+    # Sort: saved first, then pinned (by pin_order desc), then by last message
+    convs_data.sort(key=lambda x: (
+        0 if x['conv'].is_saved else 1,          # saved always first
+        0 if x['is_pinned'] else 1,               # pinned next
+        -x['pin_order'],                           # pin_order descending
+        -(x['last'].created_at.timestamp() if x['last'] else 0)  # newest last
+    ))
     return convs_data
 
 
@@ -200,6 +219,10 @@ def chat_room(request, conv_id):
     # Group participants (excluding self)
     group_members = list(conv.participants.exclude(pk=request.user.pk).select_related('profile')) if conv.is_group else []
 
+    is_pinned = _get_mute(request.user, conv)  # reuse helper pattern
+    cs = ConversationSettings.objects.filter(user=request.user, conversation=conv).first()
+    is_pinned = cs.is_pinned if cs else False
+
     return render(request, 'projects/chat/room.html', {
         'conv': conv,
         'other': other,
@@ -208,6 +231,7 @@ def chat_room(request, conv_id):
         'all_users': all_users,
         'total_unread': total_unread,
         'is_muted': is_muted,
+        'is_pinned': is_pinned,
         'group_members': group_members,
     })
 
@@ -493,3 +517,45 @@ def chat_search(request, conv_id):
         )
         results = [_msg_to_dict(m, request.user) for m in msgs]
     return JsonResponse({'results': results, 'query': q})
+
+
+@login_required
+def chat_saved(request):
+    """Open or create Saved Messages conversation."""
+    _update_online(request.user)
+    # Find existing saved conv
+    conv = Conversation.objects.filter(
+        participants=request.user,
+        is_saved=True,
+    ).first()
+    if not conv:
+        conv = Conversation.objects.create(
+            title='Избранное',
+            is_saved=True,
+            is_group=False,
+            created_by=request.user,
+        )
+        conv.participants.add(request.user)
+    return redirect('chat_room', conv_id=conv.pk)
+
+
+@login_required
+@require_POST
+def chat_pin(request, conv_id):
+    """Toggle pin for a conversation."""
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    settings_obj, _ = ConversationSettings.objects.get_or_create(
+        user=request.user, conversation=conv
+    )
+    settings_obj.is_pinned = not settings_obj.is_pinned
+    if settings_obj.is_pinned:
+        # Set pin_order to current max + 1
+        from django.db.models import Max as _Max
+        max_order = ConversationSettings.objects.filter(
+            user=request.user, is_pinned=True
+        ).aggregate(m=_Max('pin_order'))['m'] or 0
+        settings_obj.pin_order = max_order + 1
+    else:
+        settings_obj.pin_order = 0
+    settings_obj.save(update_fields=['is_pinned', 'pin_order'])
+    return JsonResponse({'is_pinned': settings_obj.is_pinned})

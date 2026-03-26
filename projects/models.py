@@ -166,6 +166,7 @@ class Conversation(models.Model):
 
     title      = models.CharField('Название беседы', max_length=100, blank=True)
     is_group   = models.BooleanField('Групповой чат', default=False)
+    is_saved   = models.BooleanField('Избранное', default=False)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_conversations', verbose_name='Создатель'
@@ -240,6 +241,8 @@ class ConversationSettings(models.Model):
     user         = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversation_settings')
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='settings')
     is_muted     = models.BooleanField('Уведомления отключены', default=False)
+    is_pinned    = models.BooleanField('Закреплён', default=False)
+    pin_order    = models.PositiveIntegerField('Порядок закрепления', default=0)
 
     class Meta:
         unique_together = ('user', 'conversation')
