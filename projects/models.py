@@ -317,3 +317,18 @@ class InviteToken(models.Model):
             created_by=user,
             expires_at=timezone.now() + timedelta(days=days),
         )
+
+
+class PushSubscription(models.Model):
+    """Browser Push API subscription for a user."""
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint  = models.TextField('Endpoint')
+    p256dh    = models.TextField('p256dh key')
+    auth      = models.TextField('Auth key')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Push-подписка'
+
+    def __str__(self):
+        return f'{self.user.username} push sub'

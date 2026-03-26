@@ -280,6 +280,24 @@ def chat_send(request, conv_id):
         msg.file_type = _get_file_type(mime)
 
     msg.save()
+
+    # Send push notification to other participants (non-blocking, best-effort)
+    sender_name = _display_name(request.user)
+    for participant in conv.participants.exclude(pk=request.user.pk):
+        try:
+            from .push import send_push
+            conv_url = f'/chat/{conv.pk}/'
+            notif_body = msg.text[:100] if msg.text else '📎 файл'
+            send_push(
+                user=participant,
+                title=f'{sender_name}',
+                body=notif_body,
+                url=conv_url,
+                tag=f'chat-{conv.pk}',
+            )
+        except Exception:
+            pass
+
     return JsonResponse(_msg_to_dict(msg, request.user))
 
 

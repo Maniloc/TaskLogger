@@ -1055,5 +1055,71 @@ function showHelp(tab) {
 }
 </script>
 
+<script>
+// ── Web Push: Service Worker + VAPID subscription ──
+(function() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+  async function subscribePush() {
+    // Get VAPID public key
+    const res = await fetch('/push/key/');
+    if (!res.ok) return;
+    const { public_key } = await res.json();
+    if (!public_key) return;
+
+    // Convert base64url → Uint8Array
+    const pad    = key => key + '='.repeat((4 - key.length % 4) % 4);
+    const raw    = atob(pad(public_key).replace(/-/g,'+').replace(/_/g,'/'));
+    const appKey = new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+
+    if (!sub) {
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: appKey,
+        });
+      } catch(e) {
+        console.log('Push subscribe failed:', e);
+        return;
+      }
+    }
+
+    // Save subscription to server
+    await fetch('/push/subscribe/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(sub.toJSON()),
+    });
+  }
+
+  // Register SW
+  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(reg => {
+      // Ask for notification permission when user is logged in
+      {% if user.is_authenticated %}
+      if (Notification.permission === 'default') {
+        // Show a subtle prompt after 3 seconds on first chat visit
+        const shown = sessionStorage.getItem('push_asked');
+        if (!shown) {
+          sessionStorage.setItem('push_asked', '1');
+          setTimeout(() => {
+            Notification.requestPermission().then(perm => {
+              if (perm === 'granted') subscribePush();
+            });
+          }, 3000);
+        }
+      } else if (Notification.permission === 'granted') {
+        subscribePush();
+      }
+      {% endif %}
+    })
+    .catch(err => console.log('SW registration failed:', err));
+})();
+</script>
 </body>
 </html>
