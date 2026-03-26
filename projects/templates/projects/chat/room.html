@@ -176,6 +176,7 @@
           <div class="msg-sender-name">{{ msg.sender.profile.display_name|default:msg.sender.username }}</div>
           {% endif %}
           {% if msg.text %}<span class="msg-text">{{ msg.text }}</span>{% endif %}
+          {% if msg.is_edited %}<span class="msg-edited" title="Изменено в {{ msg.edited_at|date:'H:i' }}">изменено</span>{% endif %}
           {% if msg.file %}
             {% if msg.file_type == 'image' %}
             <div {% if msg.text %}style="margin-top:6px"{% endif %}><img src="{{ msg.file.url }}" class="msg-image" onclick="openImg(this.src)"></div>
@@ -398,6 +399,7 @@ function renderMsg(m) {
     avHtml = `<div class="msg-av-inner">${(m.sender_display||m.sender)[0].toUpperCase()}</div>`;
   }
   let content = m.text ? `<span class="msg-text">${esc(m.text)}</span>` : '';
+  if (m.is_edited) content += `<span class="msg-edited" title="Изменено в ${m.edited_at||''}">изменено</span>`;
   if (IS_GROUP && !m.mine) content = `<div class="msg-sender-name">${esc(m.sender_display||m.sender)}</div>` + content;
   if (m.file) content += renderFileBlock(m.file);
 
@@ -430,7 +432,30 @@ document.querySelectorAll('.msg-row').forEach(row => {
 
 // Textarea
 const inp=document.getElementById('msg-input');
-inp.addEventListener('input',()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,120)+'px'; });
+inp.addEventListener('input', () => {
+  inp.style.height = 'auto';
+  inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+  // Char counter
+  const len = inp.value.length;
+  const counter = document.getElementById('char-counter');
+  if (counter) {
+    if (len > 3500) {
+      counter.style.display = 'block';
+      counter.textContent = 4000 - len;
+      counter.style.color = len > 3900 ? 'var(--red)' : 'var(--text3)';
+    } else { counter.style.display = 'none'; }
+  }
+  // Typing indicator via localStorage
+  clearTimeout(inp._typingTimer);
+  if (len > 0) {
+    localStorage.setItem('typing_' + CONV_ID, JSON.stringify({
+      user: '{{ request.user.username }}',
+      display: '{% if request.user.profile.display_name %}{{ request.user.profile.display_name }}{% else %}{{ request.user.username }}{% endif %}',
+      ts: Date.now()
+    }));
+    inp._typingTimer = setTimeout(() => localStorage.removeItem('typing_' + CONV_ID), 3000);
+  } else { localStorage.removeItem('typing_' + CONV_ID); }
+});
 inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} });
 
 // ── Context menu ──
@@ -459,7 +484,27 @@ document.addEventListener('click', e => {
 function copyMsg(id) { const t=document.querySelector(`.msg-row[data-id="${id}"] .msg-text`); if(t) navigator.clipboard.writeText(t.textContent).catch(()=>{}); }
 function startEdit(id) { const row=document.querySelector(`.msg-row[data-id="${id}"]`); if(!row)return; const t=row.querySelector('.msg-text'),ef=row.querySelector('.msg-edit-form'),inp=ef.querySelector('.msg-edit-input'); inp.value=t?t.textContent:''; row.classList.add('msg-editing'); inp.focus(); inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,120)+'px'; inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveEdit(id,inp);}if(e.key==='Escape')cancelEdit(inp);}; inp.oninput=()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,120)+'px';}; }
 function cancelEdit(el){el.closest('.msg-row').classList.remove('msg-editing');}
-async function saveEdit(id,el){const row=el.closest('.msg-row'),inp=row.querySelector('.msg-edit-input'),text=inp.value.trim();if(!text)return;const r=await fetch(`/chat/msg/${id}/edit/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({text})});if(r.ok){const t=row.querySelector('.msg-text');if(t)t.innerHTML=esc(text);row.classList.remove('msg-editing');}}
+async function saveEdit(id,el){
+  const row=el.closest('.msg-row'),inp=row.querySelector('.msg-edit-input'),text=inp.value.trim();
+  if(!text)return;
+  const r=await fetch(`/chat/msg/${id}/edit/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({text})});
+  if(r.ok){
+    const data=await r.json();
+    const t=row.querySelector('.msg-text');
+    if(t)t.innerHTML=esc(data.text);
+    // Add/update «изменено» label
+    let editedEl=row.querySelector('.msg-edited');
+    if(!editedEl){
+      editedEl=document.createElement('span');
+      editedEl.className='msg-edited';
+      const bubble=row.querySelector('.msg-bubble');
+      if(bubble)bubble.appendChild(editedEl);
+    }
+    editedEl.textContent='изменено';
+    editedEl.title=`Изменено в ${data.edited_at||''}`;
+    row.classList.remove('msg-editing');
+  }
+}
 async function deleteMsg(id){if(!confirm('Удалить сообщение?'))return;const r=await fetch(`/chat/msg/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}});if(r.ok){const row=document.querySelector(`.msg-row[data-id="${id}"]`);if(row){row.style.transition='opacity .2s,transform .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(()=>row.remove(),200);}}}
 
 // ── Chat action menu ──
@@ -605,6 +650,24 @@ function openImg(src){document.getElementById('lightbox-img').src=src;document.g
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.getElementById('lightbox').style.display='none';document.getElementById('emoji-picker-wrap').style.display='none';document.getElementById('new-panel').classList.remove('open');ov.style.display='none';}});
 
 poll();
+
+// Typing indicator (other tab in same browser, or future WebSocket)
+window.addEventListener('storage', e => {
+  if (e.key !== 'typing_' + CONV_ID) return;
+  const ind = document.getElementById('typing-indicator');
+  if (!ind) return;
+  if (e.newValue) {
+    try {
+      const d = JSON.parse(e.newValue);
+      if (d.user !== '{{ request.user.username }}' && Date.now() - d.ts < 4000) {
+        ind.textContent = d.display + ' печатает...';
+        ind.style.display = 'block';
+        clearTimeout(ind._timer);
+        ind._timer = setTimeout(() => ind.style.display = 'none', 4000);
+      }
+    } catch(err) {}
+  } else { ind.style.display = 'none'; }
+});
 </script>
 {% include 'projects/chat/_new_panel_js.html' %}
 {% endblock %}

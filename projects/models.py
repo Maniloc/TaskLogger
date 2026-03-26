@@ -219,7 +219,9 @@ class Message(models.Model):
     file_size = models.PositiveIntegerField('Размер файла', null=True, blank=True)
     file_type = models.CharField('Тип', max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    is_read = models.BooleanField(default=False, db_index=True)
+    is_read   = models.BooleanField(default=False, db_index=True)
+    is_edited  = models.BooleanField(default=False, verbose_name='Изменено')
+    edited_at  = models.DateTimeField(null=True, blank=True, verbose_name='Изменено в')
 
     class Meta:
         verbose_name = 'Сообщение'

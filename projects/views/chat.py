@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Q, Max
 from django.utils import timezone
+from django.utils.timezone import localtime
 from ..models import Conversation, Message, ConversationSettings
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -48,11 +49,13 @@ def _msg_to_dict(msg, current_user):
         'sender': msg.sender.username,
         'sender_id': msg.sender.pk,
         'sender_display': _display_name(msg.sender),
-        'created_at': msg.created_at.strftime('%H:%M'),
-        'date': msg.created_at.strftime('%d.%m.%Y'),
+        'created_at': localtime(msg.created_at).strftime('%H:%M'),
+        'date': localtime(msg.created_at).strftime('%d.%m.%Y'),
         'mine': msg.sender_id == current_user.pk,
         'avatar': av,
-        'is_read': msg.is_read,
+        'is_read':   msg.is_read,
+        'is_edited':  msg.is_edited,
+        'edited_at':  localtime(msg.edited_at).strftime('%H:%M') if msg.edited_at else None,
     }
     if msg.file:
         d['file'] = {
@@ -320,9 +323,16 @@ def chat_edit(request, msg_id):
         text = ''
     if not text:
         return JsonResponse({'error': 'empty'}, status=400)
-    msg.text = text
-    msg.save(update_fields=['text'])
-    return JsonResponse({'id': msg.pk, 'text': msg.text})
+    msg.text      = text
+    msg.is_edited  = True
+    msg.edited_at  = timezone.now()
+    msg.save(update_fields=['text', 'is_edited', 'edited_at'])
+    return JsonResponse({
+        'id': msg.pk,
+        'text': msg.text,
+        'is_edited': True,
+        'edited_at': localtime(msg.edited_at).strftime('%H:%M'),
+    })
 
 
 @login_required

@@ -92,6 +92,13 @@ body:has(.chat-layout) .container { padding-top: 0.75rem; padding-bottom: 0; }
 .msg-sender-name { font-size: 11px; font-weight: 600; color: var(--accent2); margin-bottom: 3px; }
 .msg-time { font-size: 10px; color: var(--text3); align-self: flex-end; flex-shrink: 0; }
 .msg-text { white-space: pre-wrap; word-break: break-word; }
+.msg-edited {
+  font-size: 10px;
+  color: rgba(255,255,255,.45);
+  margin-left: 4px;
+  font-style: italic;
+}
+.msg-row:not(.mine) .msg-edited { color: var(--text3); }
 
 /* File attachments */
 .msg-image { max-width: 260px; max-height: 220px; border-radius: 10px; display: block; cursor: zoom-in; object-fit: cover; transition: opacity .12s; }
