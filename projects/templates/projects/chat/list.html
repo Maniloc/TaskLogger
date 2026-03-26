@@ -22,7 +22,7 @@
         </div>
       </a>
       {% for item in convs_data %}
-      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.is_pinned %}pinned-conv{% endif %}">
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.is_pinned %}pinned-conv{% endif %}" data-conv-id="{{ item.conv.pk }}">
         {% if item.conv.is_group %}
         <div class="chat-av group">👥</div>
         {% elif item.other and item.other.profile.avatar %}
@@ -61,4 +61,27 @@
   </div>
 </div>
 {% include 'projects/chat/_new_panel_js.html' %}
+<script>
+(function() {
+  const list = document.querySelector('.chat-conv-list');
+  if (!list || typeof Sortable === 'undefined') return;
+  Sortable.create(list, {
+    animation: 150,
+    handle: '.chat-conv-item',
+    filter: '.saved-conv',          // Избранное нельзя перетащить
+    draggable: '.chat-conv-item:not(.saved-conv)',
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    onEnd: function() {
+      const order = [...list.querySelectorAll('.chat-conv-item[data-conv-id]')]
+        .map(el => el.dataset.convId);
+      fetch('/chat/reorder/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({order}),
+      });
+    },
+  });
+})();
+</script>
 {% endblock %}

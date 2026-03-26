@@ -228,6 +228,24 @@ body:has(.chat-layout) .container { padding-top: 0.75rem; padding-bottom: 0; }
 }
 </style>
 
+<!-- SortableJS for drag-and-drop conversation ordering -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+
+<style>
+/* Drag handle */
+.chat-conv-item { cursor: pointer; position: relative; }
+.drag-handle {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 16px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; cursor: grab; color: var(--text3); font-size: 11px;
+  transition: opacity .15s;
+}
+.chat-conv-item:hover .drag-handle { opacity: .6; }
+.drag-handle:hover { opacity: 1 !important; }
+.chat-conv-item.sortable-ghost { opacity: .4; background: var(--accent-bg); }
+.chat-conv-item.sortable-chosen { background: var(--bg3); }
+</style>
+
 {% block chat_content %}{% endblock %}
 
 {% endblock %}

@@ -127,25 +127,28 @@ def _sidebar_data(request, active_conv_id=None):
         last  = c.last_message()
         unread = c.unread_count(request.user) if c.pk != active_conv_id else 0
         s = _get_conv_settings(request.user, c)
-        is_pinned = s.is_pinned if s else False
-        pin_order = s.pin_order if s else 0
-        muted     = s.is_muted  if s else False
+        is_pinned  = s.is_pinned   if s else False
+        pin_order  = s.pin_order   if s else 0
+        sort_order = s.sort_order  if s else 0
+        muted      = s.is_muted    if s else False
         convs_data.append({
-            'conv':      c,
-            'other':     other,
-            'last':      last,
-            'unread':    unread,
-            'muted':     muted,
-            'is_pinned': is_pinned,
-            'pin_order': pin_order,
-            'title':     c.display_title(request.user),
+            'conv':       c,
+            'other':      other,
+            'last':       last,
+            'unread':     unread,
+            'muted':      muted,
+            'is_pinned':  is_pinned,
+            'pin_order':  pin_order,
+            'sort_order': sort_order,
+            'title':      c.display_title(request.user),
         })
     # Sort: saved first, then pinned (by pin_order desc), then by last message
     convs_data.sort(key=lambda x: (
-        0 if x['conv'].is_saved else 1,          # saved always first
+        0 if x['conv'].is_saved else 1,           # saved always first
         0 if x['is_pinned'] else 1,               # pinned next
-        -x['pin_order'],                           # pin_order descending
-        -(x['last'].created_at.timestamp() if x['last'] else 0)  # newest last
+        -x['pin_order'],                           # pin_order descending (pinned group)
+        x['sort_order'],                           # manual drag order (0=unset, goes last)
+        -(x['last'].created_at.timestamp() if x['last'] else 0),  # newest last
     ))
     return convs_data
 
@@ -560,3 +563,26 @@ def chat_pin(request, conv_id):
         settings_obj.pin_order = 0
     settings_obj.save(update_fields=['is_pinned', 'pin_order'])
     return JsonResponse({'is_pinned': settings_obj.is_pinned})
+
+
+@login_required
+@require_POST
+def chat_reorder(request):
+    """Save manual conversation order from drag-and-drop."""
+    try:
+        data = json.loads(request.body)
+        order = data.get('order', [])  # list of conv_id in new order
+    except Exception:
+        return JsonResponse({'error': 'bad data'}, status=400)
+
+    for idx, conv_id in enumerate(order):
+        conv = Conversation.objects.filter(pk=conv_id, participants=request.user).first()
+        if not conv:
+            continue
+        s, _ = ConversationSettings.objects.get_or_create(
+            user=request.user, conversation=conv
+        )
+        s.sort_order = idx + 1  # 1-based; 0 = unset
+        s.save(update_fields=['sort_order'])
+
+    return JsonResponse({'saved': len(order)})

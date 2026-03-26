@@ -245,6 +245,7 @@ class ConversationSettings(models.Model):
     is_muted     = models.BooleanField('Уведомления отключены', default=False)
     is_pinned    = models.BooleanField('Закреплён', default=False)
     pin_order    = models.PositiveIntegerField('Порядок закрепления', default=0)
+    sort_order   = models.IntegerField('Порядок сортировки', default=0)
 
     class Meta:
         unique_together = ('user', 'conversation')

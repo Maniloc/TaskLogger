@@ -25,7 +25,7 @@
         </div>
       </a>
       {% for item in convs_data %}
-      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %} {% if item.is_pinned %}pinned-conv{% endif %}">
+      <a href="{% url 'chat_room' item.conv.pk %}" class="chat-conv-item {% if item.conv.pk == conv.pk %}active{% endif %} {% if item.is_pinned %}pinned-conv{% endif %}" data-conv-id="{{ item.conv.pk }}">
         {% if item.conv.is_saved %}
         <div class="chat-av" style="background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:15px">🔖</div>
         {% elif item.conv.is_group %}
@@ -926,6 +926,29 @@ window.addEventListener('storage', e => {
     } catch(err) {}
   } else { ind.style.display = 'none'; }
 });
+
+// ── Drag-and-drop reorder ──
+(function() {
+  const list = document.querySelector('.chat-conv-list');
+  if (!list || typeof Sortable === 'undefined') return;
+  Sortable.create(list, {
+    animation: 150,
+    handle: '.chat-conv-item',
+    filter: '.saved-conv',
+    draggable: '.chat-conv-item:not(.saved-conv)',
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    onEnd: function() {
+      const order = [...list.querySelectorAll('.chat-conv-item[data-conv-id]')]
+        .map(el => el.dataset.convId);
+      fetch('/chat/reorder/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({order}),
+      });
+    },
+  });
+})();
 </script>
 {% include 'projects/chat/_new_panel_js.html' %}
 {% endblock %}

@@ -27,6 +27,7 @@ urlpatterns = [
     path('chat/<int:conv_id>/search/', views.chat_search, name='chat_search'),
     path('chat/saved/', views.chat_saved, name='chat_saved'),
     path('chat/<int:conv_id>/pin/', views.chat_pin, name='chat_pin'),
+    path('chat/reorder/', views.chat_reorder, name='chat_reorder'),
     path('chat/msg/<int:msg_id>/edit/', views.chat_edit, name='chat_edit'),
     path('chat/msg/<int:msg_id>/delete/', views.chat_delete, name='chat_delete'),
     path('invite/create/', views.invite_create, name='invite_create'),
