@@ -12,7 +12,7 @@
     <div class="chat-user-item" data-name="{{ u.username|lower }} {% if u.profile.full_name %}{{ u.profile.full_name|lower }}{% endif %}" data-uid="{{ u.pk }}" onclick="selectUser(this, {{ u.pk }})">
       <div style="position:relative;flex-shrink:0">
         {% if u.profile.avatar %}
-        <img src="{{ u.profile.avatar.url }}" class="chat-user-av" style="object-fit:cover">
+        <img src="{{ u.profile.avatar.url }}" alt="аватар" class="chat-user-av" style="object-fit:cover">
         {% else %}
         <div class="chat-user-av" style="{% if u.profile.avatar_color %}background:{{ u.profile.avatar_color }}{% endif %}">{{ u.profile.initials|default:u.username|first|upper }}</div>
         {% endif %}

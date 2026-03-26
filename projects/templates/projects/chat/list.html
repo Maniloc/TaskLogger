@@ -1,4 +1,5 @@
 {% extends 'projects/chat/base_chat.html' %}
+{% block title %}Чат — TaskLogger{% endblock %}
 {% block chat_content %}
 <div class="chat-layout">
   <div class="chat-sidebar">
@@ -18,7 +19,7 @@
         {% if item.conv.is_group %}
         <div class="chat-av group">👥</div>
         {% elif item.other.profile.avatar %}
-        <img src="{{ item.other.profile.avatar.url }}" class="chat-av">
+        <img src="{{ item.other.profile.avatar.url }}" alt="аватар" class="chat-av">
         {% else %}
         <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
         {% endif %}

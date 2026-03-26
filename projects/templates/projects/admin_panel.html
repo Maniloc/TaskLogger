@@ -112,7 +112,7 @@
           <td style="padding:12px 18px">
             <a href="{% url 'admin_user_detail' u.pk %}" style="display:flex;align-items:center;gap:10px;text-decoration:none">
               {% if u.profile.avatar %}
-              <img src="{{ u.profile.avatar.url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">
+              <img src="{{ u.profile.avatar.url }}" alt="аватар" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">
               {% else %}
               <div style="width:32px;height:32px;border-radius:50%;background:{% if u.profile.avatar_color %}{{ u.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">
                 {{ u.profile.initials|default:u.username|first|upper }}

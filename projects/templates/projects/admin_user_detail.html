@@ -1,5 +1,5 @@
 {% extends 'projects/base.html' %}
-{% block title %}{{ target_user.username }} — Администрирование{% endblock %}
+{% block title %}{{ target_user.username }} — TaskLogger{% endblock %}
 {% block content %}
 
 <div class="breadcrumb">
@@ -10,7 +10,7 @@
 <!-- User header -->
 <div style="display:flex;align-items:flex-start;gap:20px;margin-bottom:1.75rem;padding:1.25rem 1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px;flex-wrap:wrap">
   {% if target_user.profile.avatar %}
-  <img src="{{ target_user.profile.avatar.url }}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border2)">
+  <img src="{{ target_user.profile.avatar.url }}" alt="аватар" style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border2)">
   {% else %}
   <div style="width:72px;height:72px;border-radius:50%;background:{% if target_user.profile.avatar_color %}{{ target_user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;flex-shrink:0">
     {{ target_user.profile.initials|default:target_user.username|first|upper }}

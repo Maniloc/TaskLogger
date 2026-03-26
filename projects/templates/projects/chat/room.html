@@ -22,7 +22,7 @@
         {% if item.conv.is_group %}
         <div class="chat-av group">👥</div>
         {% elif item.other.profile.avatar %}
-        <img src="{{ item.other.profile.avatar.url }}" class="chat-av">
+        <img src="{{ item.other.profile.avatar.url }}" alt="аватар" class="chat-av">
         {% else %}
         <div class="chat-av" style="{% if item.other.profile.avatar_color %}background:{{ item.other.profile.avatar_color }}{% endif %}">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
         {% endif %}
@@ -51,7 +51,7 @@
       <div class="chat-av group" style="width:34px;height:34px;font-size:16px;flex-shrink:0">👥</div>
       {% elif other.profile.avatar %}
       <a href="{% url 'user_profile' other.pk %}" title="Профиль {{ other.username }}" style="flex-shrink:0">
-        <img src="{{ other.profile.avatar.url }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;display:block">
+        <img src="{{ other.profile.avatar.url }}" alt="аватар" style="width:34px;height:34px;border-radius:50%;object-fit:cover;display:block">
       </a>
       {% else %}
       <a href="{% url 'user_profile' other.pk %}" title="Профиль {{ other.username }}" style="flex-shrink:0;text-decoration:none">
@@ -94,7 +94,7 @@
         <!-- Conversation creator / self -->
         <a href="{% url 'profile' %}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:20px;border:1px solid var(--border);text-decoration:none;transition:border-color .12s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
           {% if request.user.profile.avatar %}
-          <img src="{{ request.user.profile.avatar.url }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+          <img src="{{ request.user.profile.avatar.url }}" alt="аватар" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
           {% else %}
           <div style="width:20px;height:20px;border-radius:50%;background:{% if request.user.profile.avatar_color %}{{ request.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ request.user.profile.initials|default:request.user.username|first|upper }}</div>
           {% endif %}
@@ -104,7 +104,7 @@
         {% for member in group_members %}
         <a href="{% url 'user_profile' member.pk %}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:20px;border:1px solid var(--border);text-decoration:none;transition:border-color .12s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
           {% if member.profile.avatar %}
-          <img src="{{ member.profile.avatar.url }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+          <img src="{{ member.profile.avatar.url }}" alt="аватар" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
           {% else %}
           <div style="width:20px;height:20px;border-radius:50%;background:{% if member.profile.avatar_color %}{{ member.profile.avatar_color }}{% else %}var(--surface){% endif %};color:var(--text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ member.profile.initials|default:member.username|first|upper }}</div>
           {% endif %}
@@ -122,7 +122,7 @@
       <div class="msg-row {% if msg.sender == request.user %}mine{% endif %}"
            data-id="{{ msg.pk }}" data-date="{{ msg.created_at|date:'d.m.Y' }}">
         <div class="msg-av-wrap">
-          {% if msg.sender.profile.avatar %}<img src="{{ msg.sender.profile.avatar.url }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">
+          {% if msg.sender.profile.avatar %}<img src="{{ msg.sender.profile.avatar.url }}" alt="аватар" style="width:28px;height:28px;border-radius:50%;object-fit:cover">
           {% else %}<div class="msg-av-inner" style="{% if msg.sender.profile.avatar_color %}background:{{ msg.sender.profile.avatar_color }}{% endif %}">{{ msg.sender.profile.initials|default:msg.sender.username|first|upper }}</div>{% endif %}
         </div>
         <div class="msg-bubble">

@@ -1,5 +1,5 @@
 {% extends 'projects/base.html' %}
-{% block title %}Участники — {{ project.name }}{% endblock %}
+{% block title %}Участники — {{ project.name }} — TaskLogger{% endblock %}
 {% block content %}
 
 <div class="breadcrumb">
@@ -24,7 +24,7 @@
     <!-- Project owner (always shown) -->
     <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--accent-bg)">
       {% if project.user.profile.avatar %}
-      <img src="{{ project.user.profile.avatar.url }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      <img src="{{ project.user.profile.avatar.url }}" alt="аватар" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
       {% else %}
       <div style="width:36px;height:36px;border-radius:50%;background:{% if project.user.profile.avatar_color %}{{ project.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">{{ project.user.profile.initials|default:project.user.username|first|upper }}</div>
       {% endif %}
@@ -38,7 +38,7 @@
     {% for m in members %}
     <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border)" id="member-{{ m.pk }}">
       {% if m.user.profile.avatar %}
-      <img src="{{ m.user.profile.avatar.url }}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      <img src="{{ m.user.profile.avatar.url }}" alt="аватар" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
       {% else %}
       <div style="width:36px;height:36px;border-radius:50%;background:{% if m.user.profile.avatar_color %}{{ m.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">{{ m.user.profile.initials|default:m.user.username|first|upper }}</div>
       {% endif %}
