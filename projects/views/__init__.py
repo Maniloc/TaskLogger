@@ -3,7 +3,7 @@ from .projects import project_create, project_delete, project_detail, project_ed
 from .tasks import task_create, task_delete, task_edit, quick_add
 from .report import report
 from .projects_list import projects_list
-from .profile import profile
+from .profile import profile, user_profile
 from .admin import admin_panel, admin_user_detail, admin_user_toggle, admin_reset_password, admin_user_delete, admin_tasks
 from .analytics import analytics
 

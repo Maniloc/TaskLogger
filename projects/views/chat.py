@@ -31,6 +31,17 @@ def _get_file_type(mime):
 
 
 def _msg_to_dict(msg, current_user):
+    # Avatar data for JS rendering
+    try:
+        prof = msg.sender.profile
+        av = {'type': 'img', 'url': prof.avatar.url} if prof.avatar else {
+            'type': 'initials',
+            'text': prof.initials or msg.sender.username[:2].upper(),
+            'color': prof.avatar_color or '',
+        }
+    except Exception:
+        av = {'type': 'initials', 'text': msg.sender.username[:1].upper(), 'color': ''}
+
     d = {
         'id': msg.pk,
         'text': msg.text,
@@ -40,6 +51,7 @@ def _msg_to_dict(msg, current_user):
         'created_at': msg.created_at.strftime('%H:%M'),
         'date': msg.created_at.strftime('%d.%m.%Y'),
         'mine': msg.sender_id == current_user.pk,
+        'avatar': av,
     }
     if msg.file:
         d['file'] = {

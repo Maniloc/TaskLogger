@@ -67,3 +67,23 @@ def profile(request):
         'avatar_colors': AVATAR_COLORS,
         'my_invites': my_invites,
     })
+
+
+@login_required
+def user_profile(request, user_id):
+    """Public profile page for any user — linked from chat."""
+    from django.shortcuts import get_object_or_404
+    from django.contrib.auth.models import User
+    target = get_object_or_404(User, pk=user_id)
+    # If viewing own profile redirect to edit page
+    if target == request.user:
+        return redirect('profile')
+    from ..models import Project, Task
+    from django.db.models import Count, Sum
+    total = Task.objects.filter(project__user=target).aggregate(
+        count=Count('id'), hours=Sum('hours')
+    )
+    return render(request, 'projects/user_profile.html', {
+        'target': target,
+        'total': total,
+    })

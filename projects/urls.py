@@ -35,6 +35,7 @@ urlpatterns = [
     path('projects/<int:pk>/members/<int:user_id>/role/', views.member_role, name='member_role'),
     path('shared/<int:pk>/', views.shared_project_detail, name='shared_project_detail'),
     path('profile/', views.profile, name='profile'),
+    path('profile/<int:user_id>/', views.user_profile, name='user_profile'),
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('admin-panel/user/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),
     path('admin-panel/user/<int:user_id>/toggle/', views.admin_user_toggle, name='admin_user_toggle'),

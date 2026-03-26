@@ -50,19 +50,28 @@
       {% if conv.is_group %}
       <div class="chat-av group" style="width:34px;height:34px;font-size:16px;flex-shrink:0">👥</div>
       {% elif other.profile.avatar %}
-      <img src="{{ other.profile.avatar.url }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      <a href="{% url 'user_profile' other.pk %}" title="Профиль {{ other.username }}" style="flex-shrink:0">
+        <img src="{{ other.profile.avatar.url }}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;display:block">
+      </a>
       {% else %}
-      <div class="chat-av" style="width:34px;height:34px;font-size:12px;flex-shrink:0;{% if other.profile.avatar_color %}background:{{ other.profile.avatar_color }}{% endif %}">{{ other.profile.initials|default:other.username|first|upper }}</div>
+      <a href="{% url 'user_profile' other.pk %}" title="Профиль {{ other.username }}" style="flex-shrink:0;text-decoration:none">
+        <div class="chat-av" style="width:34px;height:34px;font-size:12px;{% if other.profile.avatar_color %}background:{{ other.profile.avatar_color }}{% endif %}">{{ other.profile.initials|default:other.username|first|upper }}</div>
+      </a>
       {% endif %}
       <div style="flex:1;min-width:0">
-        <div class="chat-main-name">
+        <div class="chat-main-name" style="display:flex;align-items:center;gap:8px">
           {% if conv.is_group %}{{ conv.title|default:"Беседа" }}
           {% elif other.profile.display_name %}{{ other.profile.display_name }}
           {% else %}{{ other.username }}{% endif %}
+          {% if conv.is_group %}
+          <button onclick="toggleMembers()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:12px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);transition:all .12s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" title="Участники беседы">
+            👥 {{ group_members|length|add:1 }}
+          </button>
+          {% endif %}
         </div>
         <div class="chat-main-sub" id="status-sub">
           {% if conv.is_group %}
-            {{ group_members|length|add:1 }} участников
+            беседа · {{ group_members|length|add:1 }} участников
           {% elif other.profile.is_online %}
             <span class="online-dot"></span> онлайн
           {% else %}
@@ -76,6 +85,36 @@
         {% if is_muted %}🔕{% else %}🔔{% endif %}
       </button>
     </div>
+
+    <!-- Group members panel (hidden by default) -->
+    {% if conv.is_group %}
+    <div id="members-panel" style="display:none;border-bottom:1px solid var(--border);background:var(--bg3);padding:10px 16px;flex-shrink:0">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Участники беседы</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <!-- Conversation creator / self -->
+        <a href="{% url 'profile' %}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:20px;border:1px solid var(--border);text-decoration:none;transition:border-color .12s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          {% if request.user.profile.avatar %}
+          <img src="{{ request.user.profile.avatar.url }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+          {% else %}
+          <div style="width:20px;height:20px;border-radius:50%;background:{% if request.user.profile.avatar_color %}{{ request.user.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ request.user.profile.initials|default:request.user.username|first|upper }}</div>
+          {% endif %}
+          <span style="font-size:12px;color:var(--text2)">{% if request.user.profile.display_name %}{{ request.user.profile.display_name }}{% else %}{{ request.user.username }}{% endif %}</span>
+          <span style="font-size:10px;color:var(--accent2)">вы</span>
+        </a>
+        {% for member in group_members %}
+        <a href="{% url 'user_profile' member.pk %}" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg2);border-radius:20px;border:1px solid var(--border);text-decoration:none;transition:border-color .12s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          {% if member.profile.avatar %}
+          <img src="{{ member.profile.avatar.url }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+          {% else %}
+          <div style="width:20px;height:20px;border-radius:50%;background:{% if member.profile.avatar_color %}{{ member.profile.avatar_color }}{% else %}var(--surface){% endif %};color:var(--text);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">{{ member.profile.initials|default:member.username|first|upper }}</div>
+          {% endif %}
+          <span style="font-size:12px;color:var(--text2)">{% if member.profile.display_name %}{{ member.profile.display_name }}{% else %}{{ member.username }}{% endif %}</span>
+          {% if member.profile.is_online %}<span class="online-dot" style="width:6px;height:6px"></span>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Messages -->
     <div class="chat-messages" id="messages">
@@ -293,7 +332,16 @@ function renderMsg(m) {
   row.className = 'msg-row' + (m.mine ? ' mine' : '');
   row.dataset.id = m.id; row.dataset.date = m.date;
 
-  let avHtml = `<div class="msg-av-inner">${(m.sender_display||m.sender)[0].toUpperCase()}</div>`;
+  // Build avatar HTML from server data
+  let avHtml;
+  if (m.avatar && m.avatar.type === 'img') {
+    avHtml = `<img src="${m.avatar.url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`;
+  } else if (m.avatar && m.avatar.type === 'initials') {
+    const bg = m.avatar.color ? `background:${m.avatar.color}` : '';
+    avHtml = `<div class="msg-av-inner" style="${bg}">${m.avatar.text}</div>`;
+  } else {
+    avHtml = `<div class="msg-av-inner">${(m.sender_display||m.sender)[0].toUpperCase()}</div>`;
+  }
   let content = m.text ? `<span class="msg-text">${esc(m.text)}</span>` : '';
   if (IS_GROUP && !m.mine) content = `<div class="msg-sender-name">${esc(m.sender_display||m.sender)}</div>` + content;
   if (m.file) content += renderFileBlock(m.file);
@@ -327,21 +375,39 @@ inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDe
 // ── Context menu ──
 let ctxMenu=null;
 function showCtx(e,msgId,isMine) {
-  e.preventDefault(); if(ctxMenu){ctxMenu.remove();ctxMenu=null;}
+  e.preventDefault();
+  // Hide current menu without removing from DOM
+  if (ctxMenu) { ctxMenu.style.display='none'; ctxMenu=null; }
   const row=e.currentTarget, bubble=row.querySelector('.msg-bubble'), textEl=bubble&&bubble.querySelector('.msg-text');
-  const menu=document.getElementById('ctx-menu'); menu.innerHTML=''; menu.style.display='block';
+  const menu=document.getElementById('ctx-menu');
+  if (!menu) return;
+  menu.innerHTML=''; menu.style.display='block';
   const add=(label,icon,fn,danger=false)=>{ const b=document.createElement('button'); b.className='ctx-item'+(danger?' danger':''); b.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg>${label}`; b.onclick=()=>{menu.style.display='none';fn();}; menu.appendChild(b); };
   if(textEl&&textEl.textContent.trim()) add('Копировать','<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',()=>copyMsg(msgId));
   if(isMine){ const sep=document.createElement('div'); sep.className='ctx-sep'; menu.appendChild(sep); if(textEl&&textEl.textContent.trim()) add('Редактировать','<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',()=>startEdit(msgId)); add('Удалить','<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',()=>deleteMsg(msgId),true); }
   const mw=menu.offsetWidth,mh=menu.offsetHeight; const x=Math.min(e.clientX,window.innerWidth-mw-8),y=Math.min(e.clientY,window.innerHeight-mh-8); menu.style.left=x+'px'; menu.style.top=y+'px'; ctxMenu=menu;
 }
-document.addEventListener('click',()=>{ if(ctxMenu){ctxMenu.style.display='none';} });
+document.addEventListener('click', e => {
+  // Only close if click is outside the menu
+  if (ctxMenu && !ctxMenu.contains(e.target)) {
+    ctxMenu.style.display = 'none';
+    ctxMenu = null;
+  }
+});
 
 function copyMsg(id) { const t=document.querySelector(`.msg-row[data-id="${id}"] .msg-text`); if(t) navigator.clipboard.writeText(t.textContent).catch(()=>{}); }
 function startEdit(id) { const row=document.querySelector(`.msg-row[data-id="${id}"]`); if(!row)return; const t=row.querySelector('.msg-text'),ef=row.querySelector('.msg-edit-form'),inp=ef.querySelector('.msg-edit-input'); inp.value=t?t.textContent:''; row.classList.add('msg-editing'); inp.focus(); inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,120)+'px'; inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();saveEdit(id,inp);}if(e.key==='Escape')cancelEdit(inp);}; inp.oninput=()=>{inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,120)+'px';}; }
 function cancelEdit(el){el.closest('.msg-row').classList.remove('msg-editing');}
 async function saveEdit(id,el){const row=el.closest('.msg-row'),inp=row.querySelector('.msg-edit-input'),text=inp.value.trim();if(!text)return;const r=await fetch(`/chat/msg/${id}/edit/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({text})});if(r.ok){const t=row.querySelector('.msg-text');if(t)t.innerHTML=esc(text);row.classList.remove('msg-editing');}}
 async function deleteMsg(id){if(!confirm('Удалить сообщение?'))return;const r=await fetch(`/chat/msg/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}});if(r.ok){const row=document.querySelector(`.msg-row[data-id="${id}"]`);if(row){row.style.transition='opacity .2s,transform .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(()=>row.remove(),200);}}}
+
+// ── Group members panel ──
+function toggleMembers() {
+  const p = document.getElementById('members-panel');
+  if (!p) return;
+  p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+  if (p.style.display === 'flex') p.style.flexDirection = 'column';
+}
 
 // ── Online status display ──
 function updateOnlineUI(onlineMap) {

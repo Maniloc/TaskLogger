@@ -1,0 +1,53 @@
+{% extends 'projects/base.html' %}
+{% block title %}{{ target.username }} — Профиль{% endblock %}
+{% block content %}
+
+<div class="breadcrumb">
+  <a href="javascript:history.back()">← назад</a>
+</div>
+
+<div style="max-width:480px;margin:0 auto">
+  <div style="display:flex;align-items:center;gap:18px;padding:1.5rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:1.25rem">
+    <!-- Avatar -->
+    {% if target.profile.avatar %}
+    <img src="{{ target.profile.avatar.url }}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid var(--border2)">
+    {% else %}
+    <div style="width:72px;height:72px;border-radius:50%;background:{% if target.profile.avatar_color %}{{ target.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;flex-shrink:0;border:2px solid var(--border2)">
+      {{ target.profile.initials|default:target.username|first|upper }}
+    </div>
+    {% endif %}
+    <div>
+      <div style="font-size:20px;font-weight:600;color:var(--text);line-height:1.2">
+        {% if target.profile.full_name %}{{ target.profile.full_name }}{% else %}{{ target.username }}{% endif %}
+      </div>
+      <div style="font-size:13px;color:var(--text3);margin-top:4px">@{{ target.username }}</div>
+      {% if target.profile.position %}
+      <div style="font-size:13px;color:var(--text2);margin-top:3px">{{ target.profile.position }}{% if target.profile.department %} · {{ target.profile.department }}{% endif %}</div>
+      {% endif %}
+      <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
+        {% if target.profile.is_online %}
+        <span class="online-dot"></span>
+        <span style="font-size:12px;color:var(--green)">онлайн</span>
+        {% else %}
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--text3);display:inline-block"></span>
+        <span style="font-size:12px;color:var(--text3)">{% if target.profile.last_seen %}был(а) {{ target.profile.last_seen|date:"d.m в H:i" }}{% else %}не в сети{% endif %}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem">
+    <div class="stat-card"><div class="stat-val">{{ total.count|default:0 }}</div><div class="stat-lbl">задач</div></div>
+    <div class="stat-card"><div class="stat-val">{{ total.hours|default:0|floatformat:1 }}ч</div><div class="stat-lbl">часов</div></div>
+  </div>
+
+  <!-- Actions -->
+  <div style="display:flex;gap:10px">
+    <a href="{% url 'chat_open' target.pk %}" class="btn btn-primary" style="flex:1;justify-content:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      написать сообщение
+    </a>
+  </div>
+</div>
+{% endblock %}
