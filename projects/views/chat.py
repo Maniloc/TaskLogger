@@ -54,6 +54,11 @@ def _msg_to_dict(msg, current_user):
         'mine': msg.sender_id == current_user.pk,
         'avatar': av,
         'is_read':   msg.is_read,
+        'reply_to':  {
+            'id': msg.reply_to.pk,
+            'text': msg.reply_to.text[:80],
+            'sender': _display_name(msg.reply_to.sender),
+        } if msg.reply_to_id else None,
         'is_edited':  msg.is_edited,
         'edited_at':  localtime(msg.edited_at).strftime('%H:%M') if msg.edited_at else None,
     }
@@ -227,7 +232,13 @@ def chat_send(request, conv_id):
     if not text and not uploaded:
         return JsonResponse({'error': 'empty'}, status=400)
 
-    msg = Message(conversation=conv, sender=request.user, text=text)
+    # Handle reply_to
+    reply_id = data.get('reply_to') if not uploaded else request.POST.get('reply_to')
+    reply_msg = None
+    if reply_id:
+        reply_msg = Message.objects.filter(pk=int(reply_id), conversation=conv).first()
+
+    msg = Message(conversation=conv, sender=request.user, text=text, reply_to=reply_msg)
 
     if uploaded:
         mime = uploaded.content_type or mimetypes.guess_type(uploaded.name)[0] or ''
@@ -425,3 +436,54 @@ def chat_add_member(request, conv_id):
         'display_name': _display_name(user),
         'avatar': avatar,
     })
+
+
+@login_required
+@require_POST
+def chat_forward(request, conv_id):
+    """Forward a message to another conversation."""
+    source_conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    try:
+        data = json.loads(request.body)
+        msg_id  = int(data.get('msg_id', 0))
+        target_ids = data.get('target_ids', [])
+    except Exception:
+        return JsonResponse({'error': 'bad data'}, status=400)
+
+    orig = get_object_or_404(Message, pk=msg_id, conversation=source_conv)
+    sent = []
+    for tid in target_ids[:5]:  # max 5 conversations
+        target = Conversation.objects.filter(pk=tid, participants=request.user).first()
+        if not target:
+            continue
+        prefix = '[fwd] ' + _display_name(orig.sender) + ':' + chr(10)
+        fwd = Message.objects.create(
+            conversation=target,
+            sender=request.user,
+            text=prefix + orig.text if orig.text else '',
+        )
+        if orig.file:
+            fwd.file      = orig.file
+            fwd.file_name = orig.file_name
+            fwd.file_size = orig.file_size
+            fwd.file_type = orig.file_type
+            fwd.save(update_fields=['file','file_name','file_size','file_type'])
+        sent.append(tid)
+    return JsonResponse({'forwarded': len(sent), 'to': sent})
+
+
+@login_required
+def chat_search(request, conv_id):
+    """Search messages in a conversation."""
+    conv = get_object_or_404(Conversation, pk=conv_id, participants=request.user)
+    q = request.GET.get('q', '').strip()
+    results = []
+    if q and len(q) >= 2:
+        msgs = (
+            conv.messages
+            .filter(text__icontains=q)
+            .select_related('sender', 'sender__profile')
+            .order_by('-created_at')[:30]
+        )
+        results = [_msg_to_dict(m, request.user) for m in msgs]
+    return JsonResponse({'results': results, 'query': q})

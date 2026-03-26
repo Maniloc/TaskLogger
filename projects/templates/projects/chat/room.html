@@ -79,6 +79,10 @@
           {% endif %}
         </div>
       </div>
+      <!-- Search button -->
+      <button class="chat-action-btn" onclick="toggleSearch()" title="Поиск в чате">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
       <!-- Mute toggle -->
       <button id="mute-btn" onclick="toggleMute()" title="{% if is_muted %}Включить уведомления{% else %}Отключить уведомления{% endif %}"
               class="chat-action-btn" style="{% if is_muted %}color:var(--amber){% endif %}">
@@ -107,6 +111,16 @@
         </button>
       </div>
     </div>
+
+    <!-- Search bar -->
+    <div id="search-bar">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search-input" placeholder="Поиск сообщений..." oninput="doSearch(this.value)">
+      <span id="search-count" style="font-size:12px;color:var(--text3);white-space:nowrap"></span>
+      <button onclick="toggleSearch()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:2px">×</button>
+    </div>
+    <!-- Search results panel -->
+    <div id="search-results" style="display:none;max-height:280px;overflow-y:auto;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0"></div>
 
     <!-- Group members panel (hidden by default) -->
     {% if conv.is_group %}
@@ -175,6 +189,12 @@
           {% if conv.is_group and msg.sender != request.user %}
           <div class="msg-sender-name">{{ msg.sender.profile.display_name|default:msg.sender.username }}</div>
           {% endif %}
+          {% if msg.reply_to %}
+          <div class="msg-reply-preview" onclick="scrollToMsg({{ msg.reply_to.pk }})">
+            <div class="msg-reply-sender">{{ msg.reply_to.sender.profile.display_name|default:msg.reply_to.sender.username }}</div>
+            <div class="msg-reply-text">{{ msg.reply_to.text|truncatechars:60 }}</div>
+          </div>
+          {% endif %}
           {% if msg.text %}<span class="msg-text">{{ msg.text }}</span>{% endif %}
           {% if msg.is_edited %}<span class="msg-edited" title="Изменено в {{ msg.edited_at|date:'H:i' }}">изменено</span>{% endif %}
           {% if msg.file %}
@@ -216,6 +236,16 @@
       <button onclick="clearFile()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:4px;line-height:1">×</button>
     </div>
 
+    <!-- Reply bar -->
+    <div id="reply-bar">
+      <div style="width:3px;background:var(--accent);border-radius:2px;height:32px;flex-shrink:0"></div>
+      <div class="reply-bar-preview">
+        <div class="reply-bar-sender" id="reply-bar-sender"></div>
+        <div class="reply-bar-text" id="reply-bar-text"></div>
+      </div>
+      <button onclick="cancelReply()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:4px">×</button>
+    </div>
+
     <!-- Emoji picker -->
     <div id="emoji-picker-wrap"></div>
 
@@ -233,6 +263,32 @@
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
+  </div>
+</div>
+
+<!-- Forward modal -->
+<div id="forward-modal" onclick="if(event.target===this)closeForward()">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:15px;font-weight:600;color:var(--text)">Переслать сообщение</div>
+      <button onclick="closeForward()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="forward-conv-list" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">
+      {% for item in convs_data %}
+      <label style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);transition:border-color .12s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <input type="checkbox" value="{{ item.conv.pk }}" style="width:15px;height:15px;accent-color:var(--accent)">
+        {% if item.conv.is_group %}
+        <div style="width:28px;height:28px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👥</div>
+        {% elif item.other.profile.avatar %}
+        <img src="{{ item.other.profile.avatar.url }}" alt="аватар" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0">
+        {% else %}
+        <div style="width:28px;height:28px;border-radius:50%;background:{% if item.other.profile.avatar_color %}{{ item.other.profile.avatar_color }}{% else %}var(--accent){% endif %};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">{{ item.other.profile.initials|default:item.other.username|first|upper }}</div>
+        {% endif %}
+        <span style="font-size:13px;color:var(--text)">{{ item.title }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button onclick="sendForward()" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px">Переслать</button>
   </div>
 </div>
 
@@ -363,7 +419,8 @@ async function sendMessage() {
     const fd = new FormData(); if(text) fd.append('text',text); fd.append('file',file);
     res = await fetch(SEND_URL, { method:'POST', headers:{'X-CSRFToken':CSRF}, body:fd });
   } else {
-    res = await fetch(SEND_URL, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({text}) });
+    res = await fetch(SEND_URL, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({text, reply_to: replyingTo?.id||null}) });
+  cancelReply();
   }
   if (res.ok) { const m=await res.json(); m.mine=true; renderMsg(m); lastId=m.id; scrollBottom(true); }
   else { const e=await res.json().catch(()=>{}); if(e&&e.error) alert(e.error); }
@@ -398,7 +455,15 @@ function renderMsg(m) {
   } else {
     avHtml = `<div class="msg-av-inner">${(m.sender_display||m.sender)[0].toUpperCase()}</div>`;
   }
-  let content = m.text ? `<span class="msg-text">${esc(m.text)}</span>` : '';
+  // Reply preview
+  let content = '';
+  if (m.reply_to) {
+    content += `<div class="msg-reply-preview" onclick="scrollToMsg(${m.reply_to.id})">
+      <div class="msg-reply-sender">${esc(m.reply_to.sender)}</div>
+      <div class="msg-reply-text">${esc(m.reply_to.text)}</div>
+    </div>`;
+  }
+  content += m.text ? `<span class="msg-text">${esc(m.text)}</span>` : '';
   if (m.is_edited) content += `<span class="msg-edited" title="Изменено в ${m.edited_at||''}">изменено</span>`;
   if (IS_GROUP && !m.mine) content = `<div class="msg-sender-name">${esc(m.sender_display||m.sender)}</div>` + content;
   if (m.file) content += renderFileBlock(m.file);
@@ -469,6 +534,8 @@ function showCtx(e,msgId,isMine) {
   if (!menu) return;
   menu.innerHTML=''; menu.style.display='block';
   const add=(label,icon,fn,danger=false)=>{ const b=document.createElement('button'); b.className='ctx-item'+(danger?' danger':''); b.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg>${label}`; b.onclick=()=>{menu.style.display='none';fn();}; menu.appendChild(b); };
+  add('Ответить','<path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6M3 10l6-6"/>',()=>startReply(msgId));
+  add('Переслать','<polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/>',()=>openForward(msgId));
   if(textEl&&textEl.textContent.trim()) add('Копировать','<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',()=>copyMsg(msgId));
   if(isMine){ const sep=document.createElement('div'); sep.className='ctx-sep'; menu.appendChild(sep); if(textEl&&textEl.textContent.trim()) add('Редактировать','<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',()=>startEdit(msgId)); add('Удалить','<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',()=>deleteMsg(msgId),true); }
   const mw=menu.offsetWidth,mh=menu.offsetHeight; const x=Math.min(e.clientX,window.innerWidth-mw-8),y=Math.min(e.clientY,window.innerHeight-mh-8); menu.style.left=x+'px'; menu.style.top=y+'px'; ctxMenu=menu;
@@ -506,6 +573,131 @@ async function saveEdit(id,el){
   }
 }
 async function deleteMsg(id){if(!confirm('Удалить сообщение?'))return;const r=await fetch(`/chat/msg/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}});if(r.ok){const row=document.querySelector(`.msg-row[data-id="${id}"]`);if(row){row.style.transition='opacity .2s,transform .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(()=>row.remove(),200);}}}
+
+// ── Reply ──
+let replyingTo = null;
+
+function startReply(msgId) {
+  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+  if (!row) return;
+  const bubble = row.querySelector('.msg-bubble');
+  const textEl  = bubble && bubble.querySelector('.msg-text');
+  const avWrap  = row.querySelector('.msg-av-wrap');
+
+  // Get sender name from avatar title or sender display
+  let senderName = '';
+  const avInner = avWrap && (avWrap.querySelector('img') || avWrap.querySelector('.msg-av-inner'));
+  if (row.classList.contains('mine')) {
+    senderName = '{{ request.user.profile.display_name|default:request.user.username }}';
+  } else {
+    // try to get from sender-name div (group) or infer
+    const senderEl = bubble && bubble.querySelector('.msg-sender-name');
+    senderName = senderEl ? senderEl.textContent.trim() : 'Собеседник';
+  }
+
+  replyingTo = { id: msgId, sender: senderName, text: textEl ? textEl.textContent.trim() : '📎 файл' };
+  const bar = document.getElementById('reply-bar');
+  document.getElementById('reply-bar-sender').textContent = senderName;
+  document.getElementById('reply-bar-text').textContent   = replyingTo.text.slice(0, 80);
+  bar.classList.add('open');
+  document.getElementById('msg-input').focus();
+}
+
+function cancelReply() {
+  replyingTo = null;
+  document.getElementById('reply-bar').classList.remove('open');
+}
+
+// ── Forward ──
+let forwardMsgId = null;
+
+function openForward(msgId) {
+  forwardMsgId = msgId;
+  document.getElementById('forward-modal').classList.add('open');
+}
+function closeForward() {
+  document.getElementById('forward-modal').classList.remove('open');
+  forwardMsgId = null;
+}
+async function sendForward() {
+  const checks = document.querySelectorAll('#forward-conv-list input[type=checkbox]:checked');
+  const ids    = [...checks].map(c => parseInt(c.value));
+  if (!ids.length) { alert('Выберите хотя бы один диалог'); return; }
+  const res = await fetch(`/chat/${CONV_ID}/forward/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({msg_id: forwardMsgId, target_ids: ids}),
+  });
+  if (res.ok) {
+    closeForward();
+    checks.forEach(c => c.checked = false);
+  }
+}
+
+// ── Search ──
+let searchTimer = null;
+
+function toggleSearch() {
+  const bar = document.getElementById('search-bar');
+  const res = document.getElementById('search-results');
+  const isOpen = bar.classList.contains('open');
+  if (isOpen) {
+    bar.classList.remove('open');
+    res.style.display = 'none';
+    document.getElementById('search-input').value = '';
+    // Restore all messages
+    document.querySelectorAll('.msg-row').forEach(r => r.style.display = '');
+    document.querySelectorAll('.chat-day-sep').forEach(s => s.style.display = '');
+  } else {
+    bar.classList.add('open');
+    document.getElementById('search-input').focus();
+  }
+}
+
+function doSearch(q) {
+  clearTimeout(searchTimer);
+  const res = document.getElementById('search-results');
+  const countEl = document.getElementById('search-count');
+  if (q.trim().length < 2) {
+    res.style.display = 'none';
+    countEl.textContent = '';
+    document.querySelectorAll('.msg-row').forEach(r => r.style.display = '');
+    document.querySelectorAll('.chat-day-sep').forEach(s => s.style.display = '');
+    return;
+  }
+  searchTimer = setTimeout(async () => {
+    const r = await fetch(`/chat/${CONV_ID}/search/?q=${encodeURIComponent(q)}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    countEl.textContent = data.results.length ? `${data.results.length} рез.` : 'не найдено';
+
+    if (data.results.length === 0) {
+      res.innerHTML = '<div style="padding:1rem;text-align:center;font-size:13px;color:var(--text3)">Ничего не найдено</div>';
+      res.style.display = 'block';
+      return;
+    }
+    res.innerHTML = data.results.map(m => {
+      const hi = m.text.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\]/g,'\$&'),'gi'), s => `<mark class="search-highlight">${s}</mark>`);
+      return `<div class="search-result-item" onclick="scrollToMsg(${m.id})">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:3px">${m.sender_display} · ${m.date} ${m.created_at}</div>
+        <div style="font-size:13px;color:var(--text)">${hi.slice(0,150)}</div>
+      </div>`;
+    }).join('');
+    res.style.display = 'block';
+  }, 300);
+}
+
+function scrollToMsg(msgId) {
+  const row = document.querySelector(`.msg-row[data-id="${msgId}"]`);
+  if (row) {
+    row.scrollIntoView({behavior:'smooth', block:'center'});
+    row.style.transition = 'background .2s';
+    row.style.background = 'var(--accent-bg)';
+    setTimeout(() => row.style.background = '', 1800);
+  }
+  // Close search
+  document.getElementById('search-results').style.display = 'none';
+}
 
 // ── Chat action menu ──
 function toggleChatMenu(e) {
@@ -647,7 +839,19 @@ function openImg(src){document.getElementById('lightbox-img').src=src;document.g
 
 // sidebar/group JS loaded via _new_panel_js.html below
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.getElementById('lightbox').style.display='none';document.getElementById('emoji-picker-wrap').style.display='none';document.getElementById('new-panel').classList.remove('open');ov.style.display='none';}});
+// Close forward modal on Escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){
+    document.getElementById('lightbox').style.display='none';
+    document.getElementById('emoji-picker-wrap').style.display='none';
+    document.getElementById('new-panel').classList.remove('open');
+    ov.style.display='none';
+    closeForward();
+    cancelReply();
+    // Close search
+    const sb = document.getElementById('search-bar');
+    if(sb && sb.classList.contains('open')) toggleSearch();
+  }
+});
 
 poll();
 

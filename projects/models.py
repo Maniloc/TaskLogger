@@ -220,6 +220,10 @@ class Message(models.Model):
     file_type = models.CharField('Тип', max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     is_read   = models.BooleanField(default=False, db_index=True)
+    reply_to   = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='replies', verbose_name='Ответ на'
+    )
     is_edited  = models.BooleanField(default=False, verbose_name='Изменено')
     edited_at  = models.DateTimeField(null=True, blank=True, verbose_name='Изменено в')
 
