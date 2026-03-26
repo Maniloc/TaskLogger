@@ -667,9 +667,6 @@ select option { background: var(--bg3); color: var(--text); }
         {% if user.profile.display_name %}{{ user.profile.display_name }}{% else %}{{ user.username }}{% endif %}
       </span>
     </a>
-    <button id="push-bell-btn" onclick="requestPushPermission()" title="Включить push-уведомления" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:3px 6px;border-radius:6px;display:flex;align-items:center;transition:color .12s" onmouseover="this.style.color='var(--text)'" onmouseout="if(Notification.permission!=='granted')this.style.color='var(--text3)'">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-    </button>
     <a href="{% url 'logout' %}" class="nav-logout">выйти</a>
   </div>
 </nav>
@@ -1058,116 +1055,5 @@ function showHelp(tab) {
 }
 </script>
 
-<script>
-// ── Web Push: Service Worker + VAPID subscription ──
-// Robust base64url → Uint8Array (from Google's push lab, works in all browsers)
-function urlB64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-}
-
-(function() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-
-  const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
-
-  async function subscribePush() {
-    // Get VAPID public key
-    const res = await fetch('/push/key/');
-    if (!res.ok) return;
-    const { public_key } = await res.json();
-    if (!public_key) return;
-
-    // Convert base64url → Uint8Array (standard approach for VAPID keys)
-    const appKey = urlB64ToUint8Array(public_key);
-
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-
-    if (!sub) {
-      try {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: appKey,
-        });
-      } catch(e) {
-        console.log('Push subscribe failed:', e);
-        return;
-      }
-    }
-
-    // Save subscription to server
-    await fetch('/push/subscribe/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify(sub.toJSON()),
-    });
-  }
-
-  // Register SW
-  navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    .then(reg => {
-      {% if user.is_authenticated %}
-      if (Notification.permission === 'granted') {
-        // Already granted — silently subscribe (re-subscribe after page reload)
-        subscribePush();
-      }
-      // Update bell button state
-      updateBellBtn();
-      {% endif %}
-    })
-    .catch(err => console.warn('SW registration failed:', err));
-})();
-
-// ── Bell button: request permission on click ──
-window.requestPushPermission = async function() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('Ваш браузер не поддерживает push-уведомления');
-    return;
-  }
-  if (Notification.permission === 'denied') {
-    alert('Уведомления заблокированы. Разрешите их в настройках браузера (🔒 рядом с адресной строкой).');
-    return;
-  }
-  const perm = await Notification.requestPermission();
-  updateBellBtn();
-  if (perm === 'granted') {
-    // Need SW ready to subscribe
-    const reg = await navigator.serviceWorker.ready;
-    const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
-    const res = await fetch('/push/key/');
-    if (!res.ok) return;
-    const { public_key } = await res.json();
-    const appKey = urlB64ToUint8Array(public_key);
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
-    await fetch('/push/subscribe/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify(sub.toJSON()),
-    });
-    alert('✅ Уведомления включены!');
-  }
-};
-
-function updateBellBtn() {
-  const btn = document.getElementById('push-bell-btn');
-  if (!btn) return;
-  const perm = Notification.permission;
-  if (perm === 'granted') {
-    btn.title = 'Уведомления включены';
-    btn.style.color = 'var(--green)';
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><circle cx="19" cy="5" r="3" fill="var(--green)" stroke="none"/></svg>';
-  } else if (perm === 'denied') {
-    btn.title = 'Уведомления заблокированы (разрешите в браузере)';
-    btn.style.color = 'var(--red)';
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
-  } else {
-    btn.title = 'Включить push-уведомления';
-    btn.style.color = '';
-  }
-}
-</script>
 </body>
 </html>

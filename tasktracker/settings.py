@@ -123,8 +123,3 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
-
-# ── Web Push (VAPID) ──────────────────────────────────────
-VAPID_PUBLIC_KEY     = env('VAPID_PUBLIC_KEY', default='')
-VAPID_PRIVATE_KEY_PEM = env('VAPID_PRIVATE_KEY_PEM', default='').replace('\\n', '\n')
-VAPID_ADMIN_EMAIL    = env('VAPID_ADMIN_EMAIL', default='admin@example.com')
