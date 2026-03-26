@@ -1060,6 +1060,14 @@ function showHelp(tab) {
 
 <script>
 // ── Web Push: Service Worker + VAPID subscription ──
+// Robust base64url → Uint8Array (from Google's push lab, works in all browsers)
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
 (function() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
@@ -1072,10 +1080,8 @@ function showHelp(tab) {
     const { public_key } = await res.json();
     if (!public_key) return;
 
-    // Convert base64url → Uint8Array
-    const pad    = key => key + '='.repeat((4 - key.length % 4) % 4);
-    const raw    = atob(pad(public_key).replace(/-/g,'+').replace(/_/g,'/'));
-    const appKey = new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+    // Convert base64url → Uint8Array (standard approach for VAPID keys)
+    const appKey = urlB64ToUint8Array(public_key);
 
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -1134,9 +1140,7 @@ window.requestPushPermission = async function() {
     const res = await fetch('/push/key/');
     if (!res.ok) return;
     const { public_key } = await res.json();
-    const pad = k => k + '='.repeat((4 - k.length % 4) % 4);
-    const raw = atob(pad(public_key).replace(/-/g,'+').replace(/_/g,'/'));
-    const appKey = new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+    const appKey = urlB64ToUint8Array(public_key);
     const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
     await fetch('/push/subscribe/', {
       method: 'POST',
