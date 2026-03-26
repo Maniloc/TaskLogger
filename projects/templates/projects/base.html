@@ -891,16 +891,25 @@ function copyInviteLink() {
         <div class="help-section">
           <div class="help-h">Что такое проект?</div>
           <p>Проект — тематическая группа задач. Например: «Цифровизация документооборота», «Внутренний аудит 2026».</p>
-          <div class="help-h" style="margin-top:1rem">Страница «Мои проекты»</div>
-          <p>Все проекты с прогресс-баром и статистикой. Цветная полоса слева:</p>
+          <div class="help-h" style="margin-top:1rem">Участники проекта</div>
+          <p>Нажмите кнопку <strong>«участники»</strong> на странице проекта, чтобы пригласить коллег. Каждому можно назначить роль:</p>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--text2)">
+            <div><span class="badge" style="background:rgba(251,191,36,.15);color:var(--amber)">Владелец</span> — полный контроль, управляет составом</div>
+            <div><span class="badge b-status-in_progress">Исполнитель</span> — создаёт задачи, видит все, редактирует свои</div>
+            <div><span class="badge b-date">Наблюдатель</span> — только просмотр задач и отчётов</div>
+          </div>
+          <div class="help-h" style="margin-top:1rem">Назначение задачи</div>
+          <p>При создании задачи владелец или исполнитель может выбрать конкретного участника. Назначенный получит уведомление в чат.</p>
+          <div class="help-h" style="margin-top:1rem">«Мои задачи»</div>
+          <p>Если вы участник чужого проекта, в навбаре появится раздел <strong>«мои задачи»</strong> — ваш персональный дашборд по всем совместным проектам.</p>
+          <div class="help-h" style="margin-top:1rem">Цветовые статусы в «Мои проекты»</div>
           <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
             <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--red);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">есть просроченные задачи</span></div>
             <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--accent);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">есть активные задачи</span></div>
             <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--green);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">все задачи выполнены</span></div>
-            <div style="display:flex;align-items:center;gap:10px"><div style="width:4px;height:20px;background:var(--text3);border-radius:2px;flex-shrink:0"></div><span style="font-size:13px;color:var(--text2)">нет задач</span></div>
           </div>
         </div>
-        <div class="help-tip">💡 Переключайтесь между видом «список» и «сетка» кнопками в правом верхнем углу.</div>
+        <div class="help-tip">💡 Участники проекта видят всё, но в отчёте: владелец видит всех, исполнитель — только свои задачи.</div>
       </div>
 
       <div id="hcontent-tasks" class="help-content" style="display:none">
@@ -922,13 +931,24 @@ function copyInviteLink() {
         <div class="help-section">
           <div class="help-h">Как сформировать отчёт</div>
           <div class="help-step"><span class="help-num">1</span><div>Перейдите в раздел <strong>Отчёт</strong></div></div>
-          <div class="help-step"><span class="help-num">2</span><div>Выберите проект, период, статус</div></div>
-          <div class="help-step"><span class="help-num">3</span><div>Нажмите <span class="help-kbd">применить</span></div></div>
-          <div class="help-step"><span class="help-num">4</span><div>Скачайте <span class="help-kbd">Excel</span> или скопируйте текстовую версию</div></div>
+          <div class="help-step"><span class="help-num">2</span><div>Выберите проект, период и статус в фильтрах</div></div>
+          <div class="help-step"><span class="help-num">3</span><div>Настройте поля в <strong>конструкторе</strong> — кликайте теги чтобы включить или выключить колонки</div></div>
+          <div class="help-step"><span class="help-num">4</span><div>Скачайте <span class="help-kbd">Excel</span> или переключитесь на текстовый вид и скопируйте</div></div>
+
+          <div class="help-h" style="margin-top:1rem">Конструктор полей</div>
+          <p>Панель с тегами над результатами. Поля делятся на два типа:</p>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2);margin-top:6px">
+            <div><strong>Обязательные (зафиксированы):</strong> название проекта, обоснование проекта, инициатор проекта, дата задачи, часы, задача</div>
+            <div><strong>По выбору:</strong> статус, обоснование задачи, инициатор задачи, дата начала, срок, исполнитель</div>
+          </div>
+
+          <div class="help-h" style="margin-top:1rem">Текстовый вид</div>
+          <p>Отчёт сгруппирован по проектам. Каждый проект — отдельный блок с заголовком, инициатором и обоснованием (если включены), затем список задач с датами и часами. Удобно вставить в документ Word или письмо.</p>
+
           <div class="help-h" style="margin-top:1rem">Excel-отчёт</div>
-          <p>Форматированная таблица: синяя шапка, чередующиеся строки, зелёный цвет для выполненных задач, красный для просроченных, итоговая строка с суммой часов.</p>
+          <p>Генерируется только из выбранных полей. Каждый проект выделен строкой-заголовком с синим фоном. Зелёный цвет — выполненные задачи, красный — просроченные. Итоговая строка с суммой часов и количеством задач.</p>
         </div>
-        <div class="help-tip">💡 Поле «Обоснование» выводится в отчёт отдельной колонкой — заполняйте его при добавлении задачи.</div>
+        <div class="help-tip">💡 Набор включённых полей сохраняется в адресной строке — можно добавить в закладки «свой» вид отчёта.</div>
       </div>
 
       <div id="hcontent-analytics" class="help-content" style="display:none">
@@ -949,28 +969,42 @@ function copyInviteLink() {
         <div class="help-section">
           <div class="help-h">Личные сообщения и беседы</div>
           <div class="help-step"><span class="help-num">1</span><div>Нажмите <strong>чат</strong> в навбаре</div></div>
-          <div class="help-step"><span class="help-num">2</span><div>Нажмите <span class="help-kbd">+</span> — откроется панель</div></div>
-          <div class="help-step"><span class="help-num">3</span><div>Вкладка <strong>«личное»</strong> — выберите пользователя для личного диалога</div></div>
-          <div class="help-step"><span class="help-num">4</span><div>Вкладка <strong>«беседа»</strong> — отметьте несколько участников, введите название, нажмите «Создать беседу»</div></div>
+          <div class="help-step"><span class="help-num">2</span><div>Нажмите <span class="help-kbd">+</span> → вкладка <strong>«личное»</strong> для диалога или <strong>«беседа»</strong> для группы из нескольких участников</div></div>
+          <div class="help-step"><span class="help-num">3</span><div>Напишите сообщение, <span class="help-kbd">Enter</span> — отправить, <span class="help-kbd">Shift+Enter</span> — новая строка</div></div>
 
-          <div class="help-h" style="margin-top:1rem">Онлайн-статус</div>
-          <p>В заголовке диалога показывается статус собеседника: <span style="display:inline-flex;align-items:center;gap:4px"><span class="online-dot" style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> онлайн</span> — пользователь был активен менее 5 минут назад.</p>
+          <div class="help-h" style="margin-top:1rem">Избранное</div>
+          <p>Первый диалог в списке — <strong>🔖 Избранное</strong>. Это личный блокнот: сохраняйте заметки, ссылки, пересылайте сюда важные сообщения. Всегда закреплён первым.</p>
 
-          <div class="help-h" style="margin-top:1rem">Звук и уведомления</div>
+          <div class="help-h" style="margin-top:1rem">Управление диалогами</div>
           <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2)">
-            <div>🔔 При новом сообщении играет звуковой сигнал</div>
-            <div>🔕 Нажмите колокольчик в заголовке чата чтобы <strong>отключить звук</strong> для конкретного диалога — как в обычных мессенджерах. Иконка станет жёлтой.</div>
+            <div>📌 Кнопка <strong>⋮</strong> → «Закрепить» — диалог поднимается в начало списка с жёлтой полосой</div>
+            <div>↕️ Зажмите и перетащите диалог — меняйте порядок вручную, порядок сохраняется</div>
+            <div>🗑️ Кнопка <strong>⋮</strong> → «Очистить историю» или «Удалить диалог»</div>
           </div>
 
-          <div class="help-h" style="margin-top:1rem">Дополнительно</div>
+          <div class="help-h" style="margin-top:1rem">Функции сообщений (ПКМ)</div>
           <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2)">
-            <div>📎 Файлы — скрепка или перетащите в окно чата</div>
-            <div>😊 Эмодзи — иконка смайлика (полный пикер с поиском)</div>
-            <div>📋 Ctrl+V — вставка изображения из буфера обмена</div>
-            <div>✏️ Правая кнопка мыши на сообщение — копировать / редактировать / удалить</div>
+            <div>↩️ <strong>Ответить</strong> — цитата с отступом, клик прокручивает к оригиналу</div>
+            <div>➡️ <strong>Переслать</strong> — отправить в другой диалог или в Избранное</div>
+            <div>📋 <strong>Копировать</strong> — текст сообщения в буфер</div>
+            <div>✏️ <strong>Редактировать</strong> — изменить своё сообщение (помечается «изменено»)</div>
+            <div>🗑️ <strong>Удалить</strong> — только своё сообщение</div>
+          </div>
+
+          <div class="help-h" style="margin-top:1rem">Поиск и прочтение</div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2)">
+            <div>🔍 Кнопка поиска в заголовке чата — ищет по тексту всех сообщений</div>
+            <div>✓ одна серая галочка — доставлено, ✓✓ синие — прочитано собеседником</div>
+          </div>
+
+          <div class="help-h" style="margin-top:1rem">Онлайн-статус и звук</div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text2)">
+            <div><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span> онлайн</span> — активен менее 5 минут назад; иначе — дата и время МСК</div>
+            <div>🔔 При новом сообщении — звуковой сигнал. Кнопка 🔕 в заголовке отключает звук для конкретного диалога</div>
+            <div>📎 Файлы — скрепка, перетаскивание или Ctrl+V для вставки из буфера</div>
           </div>
         </div>
-        <div class="help-tip">💡 Красный бейдж на иконке чата в навбаре — количество непрочитанных сообщений по всем диалогам.</div>
+        <div class="help-tip">💡 Красный бейдж на иконке чата — непрочитанные по всем диалогам. Кликните аватар собеседника в заголовке, чтобы открыть его профиль.</div>
       </div>
 
       <div id="hcontent-profile" class="help-content" style="display:none">
